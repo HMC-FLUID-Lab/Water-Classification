@@ -563,7 +563,7 @@ def plot_umap_embedding(df_umap: pd.DataFrame, labels: np.ndarray,
         sc = ax2.scatter(df_umap[x_col], df_umap[y_col],
                          c=df_raw["zeta_all"].values,
                          s=3, alpha=0.4, cmap="coolwarm")
-        plt.colorbar(sc, ax=ax2, label="ζ (Å)")
+        plt.colorbar(sc, ax=ax2, label="ζ (nm)")
         ax2.set_xlabel("UMAP 1", fontsize=11)
         ax2.set_ylabel("UMAP 2" if n_comp >= 2 else "", fontsize=11)
         ax2.set_title("UMAP embedding — coloured by ζ")
@@ -731,6 +731,171 @@ def run_dbscan_gmm(df_scaled: pd.DataFrame, eps: float = 0.2,
             print(f"  Silhouette (final clean subset): {sil:.4f}")
 
     return final_labels
+
+
+def run_dbscan_gmm_confidence(df_scaled: pd.DataFrame, eps: float = 0.2,
+                              min_samples: int = 5, n_components: int = 2,
+                              alpha: float = 0.65,
+                              random_state: int = 42):
+    """
+    Confidence-based two-state assignment with a *middle* transition band.
+
+    Motivation
+    ----------
+    Plain DBSCAN->GMM (`run_dbscan_gmm`) labels every low-density point as
+    noise (-1).  That conflates two physically different populations:
+      * the low-density VALLEY between the two ζ modes — genuinely ambiguous
+        "transition" molecules, and
+      * the low-density TAILS of each mode — molecules that are confidently
+        one state, just at extreme order-parameter values.
+    Density cannot separate them; posterior membership *confidence* can.  A
+    valley molecule has comparable posteriors (~0.5/0.5, low confidence); a
+    tail molecule has one posterior ≈1 (high confidence).
+
+    Method (density-based core-seeding + Bayes/three-way decision)
+    -------------------------------------------------------------
+      Stage 1 — DBSCAN locates the two dense cores; its clean subset *seeds* a
+                robust GMM so the Gaussians lock onto the two lobes instead of
+                being pulled by the sparse tails (keeps the density step).
+      Stage 2 — the fitted GMM scores ALL molecules (`predict_proba`), incl.
+                the DBSCAN tails.  Every molecule is assigned to its argmax
+                posterior -> tails join their confident cluster.
+      Stage 3 — molecules whose max posterior < `alpha` (comparable confidence
+                => the valley) are relabelled -1 = transition.  Everything
+                else keeps its argmax label.
+
+    This mirrors the two-Gaussian decomposition of P(ζ) used for water's two
+    states (Russo & Tanaka, Nat. Commun. 2014; Shi & Tanaka, JACS 2020) and the
+    three-way (POS/BND/NEG) decision on GMM posteriors.
+
+    Parameters
+    ----------
+    alpha : max-posterior confidence threshold in [1/n_components, 1].  For two
+            states, `alpha` = 0.65 is equivalent to |p0 - p1| < 0.30.
+
+    Returns
+    -------
+    labels : int array (-1 = transition, 0..n_components-1 = states)
+    pmax   : float array, per-molecule max posterior (membership confidence)
+    """
+    print("Stage 1: DBSCAN core seeding …")
+    db_labels = run_dbscan(df_scaled, eps=eps, min_samples=min_samples)
+    core_mask = db_labels != -1
+    print(f"  Core points for GMM fit: {core_mask.sum():,}  "
+          f"({100*core_mask.sum()/len(db_labels):.1f}%)")
+
+    print("Stage 2: GMM fit on cores, posteriors for ALL molecules …")
+    gm = GaussianMixture(n_components=n_components, random_state=random_state,
+                         covariance_type="full", n_init=5)
+    gm.fit(df_scaled[core_mask])
+    probs = gm.predict_proba(df_scaled)      # (n_samples, n_components)
+    labels = probs.argmax(axis=1).astype(int)
+    pmax = probs.max(axis=1)
+
+    print("Stage 3: confidence-band cleavage …")
+    transition = pmax < alpha
+    labels[transition] = -1
+    n_trans = int(transition.sum())
+    print(f"  alpha (max-posterior cut) : {alpha}")
+    print(f"  Transition (middle band)  : {n_trans:,}  "
+          f"({100*n_trans/len(labels):.1f}%)")
+    for c in range(n_components):
+        n_c = int((labels == c).sum())
+        print(f"  State {c}                   : {n_c:,}  "
+              f"({100*n_c/len(labels):.1f}%)")
+
+    # Report which component is LFTS (higher mean ζ) for convenience.
+    for order_col in ("zeta_all", "q_all"):
+        if order_col in df_scaled.columns:
+            means = [df_scaled[order_col][labels == c].mean()
+                     for c in range(n_components)]
+            print(f"  Probable LFTS state: {int(np.argmax(means))} "
+                  f"(ranked by scaled '{order_col}')")
+            break
+
+    clean = labels != -1
+    if len(np.unique(labels[clean])) > 1:
+        sil = silhouette_score(df_scaled[clean], labels[clean])
+        print(f"  Silhouette (states only)  : {sil:.4f}")
+
+    return labels, pmax
+
+
+def run_dbscan_gmm_density(df_scaled: pd.DataFrame, eps: float = 0.06,
+                           min_samples: int = 20, n_components: int = 2,
+                           valley_frac: float = 0.90, random_state: int = 42):
+    """
+    DENSITY-valley two-state assignment (keeps the 4-feature space).
+
+    Same first two stages as `run_dbscan_gmm_confidence` (DBSCAN outlier
+    removal + 2-component GMM cores), but the transition/cleavage is defined by
+    ACTUAL LOW DENSITY in the middle, not by posterior confidence:
+
+      1. DBSCAN removes gross outliers; GMM fits the two cores.
+      2. Build the Fisher discriminant w = (½(Σ0+Σ1))⁻¹(μ1−μ0) — the 1-D axis
+         along which the two states separate — and project every molecule: t = x·w.
+      3. Estimate the 1-D density ρ(t) (KDE).  It is bimodal: two mode peaks
+         with a low-density VALLEY between them.
+      4. Cleave at the density MINIMUM t* between the two modes.
+      5. transition (-1) = molecules that are BETWEEN the two modes AND whose
+         local density ρ(t) < valley_frac · (peak density).  The confident
+         TAILS (beyond a mode) keep their cluster even though they are sparse,
+         because they are not in the valley.
+
+    This is the density-based ("DBSCAN spirit") cleavage: dense modes = states,
+    sparse middle = transition — with the middle-vs-tail ambiguity resolved by
+    the discriminant projection.
+
+    Returns
+    -------
+    labels : int array (-1 = transition, 0/1 = states)
+    t      : float array, Fisher-discriminant projection (diagnostic)
+    """
+    from scipy.stats import gaussian_kde
+
+    print("Stage 1: DBSCAN outlier removal + GMM cores …")
+    db = run_dbscan(df_scaled, eps=eps, min_samples=min_samples)
+    core = db != -1
+    gm = GaussianMixture(n_components=n_components, covariance_type="full",
+                         n_init=5, random_state=random_state)
+    gm.fit(df_scaled[core])
+    mu, cov = gm.means_, gm.covariances_
+
+    print("Stage 2: Fisher discriminant projection …")
+    Sw = 0.5 * (cov[0] + cov[1])
+    w = np.linalg.solve(Sw, mu[1] - mu[0])
+    w = w / np.linalg.norm(w)
+    X = df_scaled.values
+    t = X @ w
+    t0, t1 = float(mu[0] @ w), float(mu[1] @ w)
+    lo, hi = (t0, t1) if t0 < t1 else (t1, t0)
+
+    print("Stage 3: density valley cleavage …")
+    kde = gaussian_kde(t)
+    tg = np.linspace(lo, hi, 240)
+    dens = kde(tg)
+    tstar = float(tg[int(np.argmin(dens))])
+    peak = float(min(kde(np.array([t0]))[0], kde(np.array([t1]))[0]))
+    labels = (t > tstar).astype(int)              # cleave at density minimum
+    pdens = kde(t)
+    between = (t >= lo) & (t <= hi)
+    transition = between & (pdens < valley_frac * peak)
+    labels[transition] = -1
+
+    n_trans = int(transition.sum())
+    print(f"  Fisher t*: {tstar:.3f} (modes {lo:.3f},{hi:.3f})  valley/peak={dens.min()/peak:.2f}")
+    print(f"  valley_frac={valley_frac}")
+    print(f"  Transition (density valley): {n_trans:,} ({100*n_trans/len(labels):.1f}%)")
+    for c in range(n_components):
+        n_c = int((labels == c).sum())
+        print(f"  State {c}: {n_c:,} ({100*n_c/len(labels):.1f}%)")
+
+    # LFTS = higher mean ζ; relabel 0/1 so caller's LFTS-by-ζ logic still works
+    if "zeta_all" in df_scaled.columns:
+        zmeans = [df_scaled["zeta_all"][labels == c].mean() for c in (0, 1)]
+        print(f"  Probable LFTS state: {int(np.argmax(zmeans))} (higher mean ζ)")
+
+    return labels, t
 
 
 def run_hdbscan(df_scaled: pd.DataFrame,

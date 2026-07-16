@@ -1,0 +1,297 @@
+================================================================================
+MAIN-TEXT REWRITES  —  method change: DBSCAN-noise  ->  density-valley middle cleavage
+Target file: Draft5.tex  (TIP4P/2005 two-state water)
+Prepared 2026-07-10. Transport each REPLACE block into the paper.
+================================================================================
+
+WHAT CHANGED (one sentence):
+  The transition/"noise" set is no longer "every low-density point DBSCAN flags"
+  (which also removed the confident distribution TAILS, ~23%, giving the grey halo
+  across all of Fig 1d). Instead, DBSCAN now only finds the two dense cores + seeds a
+  2-component GMM; every molecule (tails included) is assigned by posterior; and ONLY
+  the central density valley between the two modes is set aside as transition.
+
+METHOD ADOPTED: density-valley middle cleavage  (run_dbscan_gmm_density).
+
+FEATURE SET: keep the FOUR paper features (q, LSI, S_k, zeta). Run the FINAL clustering
+  on 4 features (drop Q6) so every number below matches the text.
+
+!! CAVEAT TO RESOLVE BEFORE FILLING NUMBERS !!
+  One density-valley run labelled LFTS as the MAJORITY (~51%), which contradicts the
+  physics (LFTS is the minority at -20 C, ~25-38%). Confirm LFTS/DNLS labelling on the
+  final run (LFTS = higher mean zeta AND the FSDP-bearing cluster). If the majority
+  flip persists, we should instead adopt the posterior-confidence variant
+  (run_dbscan_gmm_confidence, alpha=0.95: transition ~17.8%, LFTS minority ~25%) — the
+  prose below works for either mechanism; only step 3 wording and the numbers differ.
+
+--------------------------------------------------------------------------------
+NUMBERS TO FILL  (from ONE clean 4-feature run; replace every <<...>> token):
+  <<TRANS_PCT>>  transition-band fraction (density-valley candidate ~6%; confidence ~17.8%)
+  <<LFTS_PCT>>   LFTS fraction        <<DNLS_PCT>>  DNLS fraction
+  <<SIL_MAIN>>   silhouette of the density-GMM pipeline (old value was 0.2841)
+  <<SIL_KM>>     K-means silhouette   (old 0.2418 — recompute to confirm)
+  <<SIL_GMM>>    GMM silhouette       (old 0.2144 — recompute to confirm)
+  <<SIL_HDB>>    HDBSCAN-pipeline silhouette (old 0.2572)
+  <<HDB_PCT>>    HDBSCAN transition fraction (old 15.2%)
+  <<kT1>>        LFTS first-sharp-diffraction-peak position (old 0.81)
+  <<kD1>>        DNLS ordinary-liquid-peak position         (old 1.05)
+  (kT1/kD1 appear in: abstract L63; intro L89-90; L137; L140; Fig2 caption L197-205;
+   Conclusions L248. They are NOT method-dependent in wording — only the value changes.)
+--------------------------------------------------------------------------------
+
+
+================================================================================
+EDIT 1  —  paragraph at Draft5.tex line 118  (motivation: valley vs tails)
+================================================================================
+FIND: "The failures of K-means and GMM indicate that there is a substantial population ... we choose the density-based spatial clustering of applications with noise (DBSCAN) for this purpose. \cite{ester_density-based_1996}"
+
+REPLACE WITH:
+The failures of K-means and GMM indicate a substantial population of molecules in the
+transition region between the two states, which must be set aside before the remaining
+molecules can be classified cleanly. If water is genuinely a two-state mixture, these
+transition molecules are configurations interconverting between LFTS and DNLS, and they
+occupy the low-density valley between the two modes of the
+distribution~\cite{russo_understanding_2014,shi_direct_2020}; were water a single
+continuum, no such valley would exist and the strategy would fail. A density-based
+analysis is therefore the natural tool. Low feature-point density, however, arises in two
+physically distinct places: the central valley \emph{between} the states, and the outer
+\emph{tails} of each state, where molecules are confidently one structure but at extreme
+order-parameter values. A method that discards all low-density points---for instance, by
+taking the noise label of DBSCAN~\cite{ester_density-based_1996} directly---would remove
+genuine LFTS and DNLS molecules from the tails along with the ambiguous ones. We therefore
+build a density-based procedure that cleaves only the middle.
+
+
+================================================================================
+EDIT 2  —  paragraphs at Draft5.tex lines 121 AND 123  (the three-step mechanism)
+================================================================================
+FIND: the two paragraphs beginning "DBSCAN groups feature points that lie in contiguous
+high-density regions ..." (L121) and "Thus, our strategy for identifying the two states
+is developed as follows ..." (L123).
+
+REPLACE BOTH WITH (two paragraphs):
+
+Our procedure has three steps. First, we apply DBSCAN~\cite{ester_density-based_1996} not
+as a classifier but to locate the two dense cores of the distribution and to reject gross
+outliers; the clean cores then seed a two-component Gaussian mixture, so the mixture locks
+onto the two lobes rather than being distorted by sparse points. Second, the fitted mixture
+assigns \emph{every} molecule---including those in the tails---to the state of higher
+posterior probability~\cite{bishop_pattern_2006,dempster_maximum_1977}, so no confident
+molecule is discarded. Third, we identify the transition set from the density minimum
+between the two states: projecting the molecules onto Fisher's linear discriminant axis,
+which optimally separates the two fitted components~\cite{fisher_use_1936}, we estimate the
+one-dimensional density along this axis and label as transitional only the molecules lying
+in the low-density valley between the modes, where the two states' memberships are
+comparable~\cite{menard_fuzzy_2000}. This is a three-way decision---LFTS, DNLS, or
+transition---in which the third outcome is reserved for genuinely ambiguous configurations
+rather than for distant outliers~\cite{yao_three-way_2010}.
+
+The width of the transition band is set by a single interpretable parameter: the density
+threshold, expressed as a fraction of the two modal peak heights, below which a molecule in
+the valley is deemed transitional. Because the tails remain assigned to their states, this
+places the cleavage in the middle of the distribution---a clean cut through the sparse
+crossover---rather than around the entire low-density periphery. The neighborhood radius
+$\varepsilon$ and minimum count MinPts of the core-finding step, together with this valley
+depth, are chosen by maximizing the silhouette score of the resulting classification
+(Supplementary Note~2 and Supplementary Fig.~S5). The full pipeline is illustrated in
+Fig.~\ref{fig:water_classification_workflow}.
+
+
+================================================================================
+EDIT 3  —  flowchart caption, Draft5.tex line 128
+================================================================================
+FIND: "DBSCAN  is then applied to identify (and optionally remove) transitional water
+molecules, after which a Gaussian mixture model (GMM) classifies the remaining molecules
+into two populations: the low-density, four-coordinated tetrahedral state (LFTS) and the
+disordered normal-liquid state (DNLS)."
+
+REPLACE WITH:
+DBSCAN is then applied to locate the two dense cores and reject outliers, seeding a Gaussian
+mixture model (GMM) that assigns every molecule to the low-density, four-coordinated
+tetrahedral state (LFTS) or the disordered normal-liquid state (DNLS); molecules in the
+central density valley between the two states are set aside as transitional.
+
+
+================================================================================
+EDIT 4  —  result paragraph + fractions, Draft5.tex line 133
+================================================================================
+FIND: "This DBSCAN--GMM pipeline yields the cleanest two-state separation. The DBSCAN step
+identifies about $23\%$ ... suggesting xxx."
+
+REPLACE WITH:
+This density-valley pipeline yields the cleanest two-state separation. It assigns
+$\approx\!<<TRANS_PCT>>$ of molecules to the central transition band and classifies the
+remainder into LFTS and DNLS, giving a silhouette score of $<<SIL_MAIN>>$ on the classified
+molecules---the highest among the methods we tested (Fig.~\ref{fig:classification_comparison}b,d).
+We cross-check the result by replacing the DBSCAN-seeded core step with HDBSCAN, a
+hierarchical density estimator that requires no explicit density
+radius~\cite{mcinnes_hdbscan_2017,malzer_hybrid_2020}; it assigns a $<<HDB_PCT>>$ transition
+fraction and reaches a silhouette score of $<<SIL_HDB>>$ (Supplementary Figs.~S3 and~S6).
+That two independent density estimators agree indicates the separation does not depend on
+the particular density threshold we choose. The resulting classification of feature points
+is shown in Fig.~\ref{fig:classification_comparison}b--d.
+
+
+================================================================================
+EDIT 5  —  Fig. 1 caption, panel (b), Draft5.tex lines 169-173
+================================================================================
+FIND: "molecules in the low-density transition zone flagged as noise are shown in grey."
+
+REPLACE WITH:
+molecules in the central transition band---identified from the density minimum between the
+two states---are shown in grey. The transition molecules form a narrow band along the
+crossover rather than a diffuse halo, and the confident tails of each state remain classified.
+
+
+================================================================================
+EDIT 6  —  Fig. 1 caption, panel (d), Draft5.tex lines 178-181
+================================================================================
+FIND: "\textbf{(d)} $q$--$\zeta$ scatter of the classified molecules (LFTS blue, DNLS red,
+transition grey), showing the two dense lobes and the sparse interconverting region between
+them. The silhouette score for this pipeline is $0.2841$, the highest among the methods tested."
+
+REPLACE WITH:
+\textbf{(d)} $q$--$\zeta$ scatter of the classified molecules (LFTS blue, DNLS red,
+transition grey), showing the two dense lobes and the sparse interconverting band cleaved
+between them. The silhouette score for this pipeline is $<<SIL_MAIN>>$, the highest among
+the methods tested.
+
+
+================================================================================
+EDIT 7  —  Conclusions, Draft5.tex line 246
+================================================================================
+FIND: "... and the DBSCAN--GMM pipeline does this most cleanly (silhouette score $0.2841$)
+by discarding the ambiguous transition-zone molecules before classification."
+
+REPLACE WITH:
+... and the density-valley pipeline does this most cleanly (silhouette score $<<SIL_MAIN>>$)
+by setting aside only the ambiguous molecules in the central density minimum---while
+retaining the confident tails of each state---before classification.
+
+
+================================================================================
+EDIT 8  —  Conclusions caveat, Draft5.tex line 252
+================================================================================
+FIND: "The transition-zone molecules removed by the density-based denoising step are best
+understood as configurations interconverting between the two states, not as a distinct third
+structural species."
+
+REPLACE WITH:
+The transition molecules set aside at the density minimum are best understood as
+configurations interconverting between the two states, not as a distinct third structural
+species; because they occupy only the central valley and not the tails, removing them
+sharpens the two states without discarding genuine members of either.
+
+
+================================================================================
+EDIT 9  —  Fig. 3 caption, panel (c), Draft5.tex line 233
+================================================================================
+FIND: "\textbf{(c)}  LFTS population fraction $s$ versus temperature (blue) and the fraction
+of molecules removed as transition-zone noise (grey); the shaded region marks the supercooled
+regime."
+
+REPLACE WITH:
+\textbf{(c)} LFTS population fraction $s$ versus temperature (blue) and the fraction of
+molecules in the central transition band (grey); the shaded region marks the supercooled regime.
+
+
+================================================================================
+EDIT 10  —  Methods, "Hybrid Density--GMM Pipelines" subsection, Draft5.tex lines 308-309
+================================================================================
+FIND: the "\subsubsection{Hybrid Density--GMM Pipelines}" body beginning
+"DBSCAN~\cite{ester_density-based_1996} identifies clusters as contiguous high-density
+regions ... are selected via a systematic grid search (Supplementary Note~2 and Supplementary
+Figs.~S5 and~S6)."
+
+REPLACE the subsection title and body WITH:
+
+\subsubsection{Density-Valley GMM Pipeline}
+Our main pipeline combines density-based core identification with probabilistic assignment
+and an explicit three-way decision. We first run DBSCAN~\cite{ester_density-based_1996} on the
+standardized features to locate the two dense cores and reject gross outliers; DBSCAN serves
+only this purpose, not final classification, because its cluster count depends sensitively on
+the neighborhood radius. A two-component Gaussian mixture is seeded on the DBSCAN cores and
+fitted by expectation--maximization~\cite{dempster_maximum_1977,bishop_pattern_2006}, and every
+molecule is assigned to the component of higher posterior probability, so molecules in the
+distribution tails are retained in their states. To identify ambiguous molecules we project all
+points onto Fisher's linear discriminant axis between the two fitted
+components~\cite{fisher_use_1936}, estimate the probability density along this axis by kernel
+density estimation, and locate the minimum between the two modes. Molecules that lie between
+the modes with a density below a chosen fraction (the valley depth) of the modal peak heights
+are labelled transitional~\cite{menard_fuzzy_2000,yao_three-way_2010}; all others keep their
+mixture assignment. The DBSCAN parameters $\varepsilon$ and MinPts and the valley-depth fraction
+are selected by a grid search that maximizes the silhouette score~\cite{rousseeuw_silhouettes_1987}
+of the resulting classification (Supplementary Note~2 and Supplementary Figs.~S5 and~S6). As a
+density-native cross-check we replace the DBSCAN-seeded core step with
+HDBSCAN~\cite{mcinnes_hdbscan_2017,malzer_hybrid_2020}, which requires no explicit density radius.
+
+
+================================================================================
+NEW BibTeX ENTRIES  —  append these to bib.bib (5 new keys)
+================================================================================
+% --- methods developed in this work: cleavage / decision / discriminant ---
+
+@article{fisher_use_1936,
+  title   = {The Use of Multiple Measurements in Taxonomic Problems},
+  author  = {Fisher, Ronald A.},
+  journal = {Annals of Eugenics},
+  volume  = {7},
+  number  = {2},
+  pages   = {179--188},
+  year    = {1936},
+  doi     = {10.1111/j.1469-1809.1936.tb02137.x}
+}
+
+@book{bishop_pattern_2006,
+  title     = {Pattern Recognition and Machine Learning},
+  author    = {Bishop, Christopher M.},
+  year      = {2006},
+  publisher = {Springer},
+  address   = {New York},
+  isbn      = {978-0-387-31073-2}
+}
+
+@article{yao_three-way_2010,
+  title   = {Three-Way Decisions with Probabilistic Rough Sets},
+  author  = {Yao, Yiyu},
+  journal = {Information Sciences},
+  volume  = {180},
+  number  = {3},
+  pages   = {341--353},
+  year    = {2010},
+  doi     = {10.1016/j.ins.2009.09.021}
+}
+
+@article{menard_fuzzy_2000,
+  title   = {The Fuzzy c+2-Means: Solving the Ambiguity Rejection in Clustering},
+  author  = {M{\'e}nard, Michel and Demko, Christophe and Loonis, Pierre},
+  journal = {Pattern Recognition},
+  volume  = {33},
+  number  = {7},
+  pages   = {1219--1237},
+  year    = {2000},
+  doi     = {10.1016/S0031-3203(99)00110-7}
+}
+
+@book{hartigan_clustering_1975,
+  title     = {Clustering Algorithms},
+  author    = {Hartigan, John A.},
+  year      = {1975},
+  publisher = {John Wiley \& Sons},
+  address   = {New York},
+  isbn      = {978-0-471-35645-5}
+}
+
+% NOTE: hartigan_clustering_1975 (clusters = high-density regions separated by
+% low-density valleys) is provided as an optional citation for the density-valley
+% concept; cite it in EDIT 1 after "...between the two modes of the distribution"
+% if you want a clustering-theory anchor in addition to the water references.
+
+================================================================================
+ALSO NEEDS UPDATING IN THE SI (SI.tex) — not rewritten here, flagging for later:
+  - L123-132  "Clustering algorithms": same DBSCAN-noise -> density-valley reframe
+  - L164-167  operating points + "removing ~23% as noise" -> new fraction + valley depth
+  - L233-243, L246-259  DBSCAN/HDBSCAN heatmap captions (fractions)
+  - L323-333  LFTS identification + classified fraction ~0.38 (recompute)
+  - L152-154  silhouette table (recompute all four)
+================================================================================

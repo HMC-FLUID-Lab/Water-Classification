@@ -1,0 +1,331 @@
+\documentclass[aps, amsmath,amssymb, reprint, twocolumn, superscriptaddress]{revtex4-2}
+\usepackage[utf8]{inputenc}
+
+\setcitestyle{super}
+
+\usepackage{graphicx}
+\usepackage{dcolumn}
+\usepackage{bm}
+\usepackage{amsmath}
+\usepackage{epstopdf}
+\usepackage{epsfig}
+\usepackage[caption=false]{subfig}
+\usepackage{fancyvrb}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage[normalem]{ulem}
+\usepackage{mathbbol}
+\usepackage{tikz}
+\usepackage{gensymb}
+\usepackage{booktabs}
+\usepackage{placeins}   % provides \FloatBarrier
+
+\newcommand{\br}{\mathbf{r}}
+\newcommand{\bk}{\mathbf{k}}
+\newcommand{\dd}[2]{\frac{\partial #1}{\partial #2}}
+
+\newcommand{\comment}[1]{\textcolor{Mahogany}{#1}}
+\newcommand{\edit}[1]{\textcolor{OrangeRed}{#1}}
+\newcommand{\delete}[1]{\textcolor{OrangeRed}{\sout{#1}}}
+\newcommand{\BeginEdit}{\color{OrangeRed}}
+\newcommand{\EndEdit}{\color{black}}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\title{Two structural states in liquid water revealed by unsupervised classification}
+\author{Yiqi Yao}
+\affiliation{Department of Chemistry, Harvey Mudd College, 301 Platt Boulevard, Claremont, California 91711}
+\author{Diya Sanghi}
+\affiliation{Department of Chemistry, Harvey Mudd College, 301 Platt Boulevard, Claremont, California 91711}
+\author{Akanksha D. Chokshi}
+\affiliation{Yale-NUS College, Singapore 138527, Singapore}
+\author{Minwoo Choi}
+\affiliation{Yale-NUS College, Singapore 138527, Singapore}
+\author{Haiqin Wang}
+\affiliation{Department of Chemistry, Harvey Mudd College, 301 Platt Boulevard, Claremont, California 91711}
+\author{Bilin Zhuang}
+\email{bzhuang@hmc.edu}
+\affiliation{Department of Chemistry, Harvey Mudd College, 301 Platt Boulevard, Claremont, California 91711}
+\affiliation{Yale-NUS College, Singapore 138527, Singapore}
+\date{\today}
+
+\begin{abstract}
+Whether liquid water is a structural continuum or a dynamic mixture of two distinct local environments
+has remained a matter of serious debate for over a century. By applying unsupervised machine-learning
+clustering to molecular dynamics simulations of TIP4P/2005 and TIP5P water, we show that two
+structurally distinct local populations---locally favored tetrahedral structures (LFTS) and disordered
+normal-liquid structures (DNLS)---emerge without prior knowledge of the classification scheme.
+A systematic comparison of clustering algorithms operating on a four-dimensional order-parameter feature
+space ($q$, LSI, $S_k$, $\zeta$) reveals that hybrid density-denoising pipelines yield the clearest
+two-state separation. Crucially, an independent physical observable validates the cluster assignments: the per-cluster oxygen--oxygen partial structure factor $S(k)$, computed via the Debye
+scattering equation directly from atomic coordinates. The LFTS cluster exhibits a first sharp diffraction
+peak at $k_{T1}\approx 0.81$, while the DNLS cluster peaks at $k_{D1} \approx 1.05$, in quantitative
+agreement with the theoretical predictions of the two-state model. Because the clustering and validation
+share no common descriptor, this agreement constitutes model-independent confirmation that the two-state
+signature in the structure factor reflects genuine structural heterogeneity in liquid water rather than an
+artifact of the classification scheme.
+\end{abstract}
+
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 1. INTRODUCTION
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Introduction}
+
+% --- PARA 1: hook. ---
+Whether liquid water is a single continuum of local structures \comment{[Be careful with word choice. It is definitely a single substance. The question is whether there are two structural states within the one substance.]} or a mixture of two distinct structural states has been debated since the nineteenth century \cite{whiting-1883, rontgen-1892} \comment{[If you want to talk about this from the nineteenth century, find citations that discussed this from the nineteenth century and cite them here]}, and the debate has proved remarkably hard to settle. This question matters because water is anomalous: it reaches its maximum density at $4\,^\circ$C, its
+isothermal compressibility rises on supercooling, and its dynamics cross
+over from fragile to strong ~\cite{gallo_water_2016}. \comment{[The next sentence finally goes to ``two pictures''. But it has already been logcally detached from the previous sentence.]} The microscopic picture of water needs to explain these behaviors, and two pictures compete to do so. Continuum models treat water as a broad, unimodal distribution of local environments~\cite{eisenberg_structure_2005}, whereas mixture models\cite{whiting-1883,rontgen-1892,wernet-2004, huang-2009, russo_understanding_2014} \comment{[Why here? With the two dashes in front and after, it is a ``word meander''. Also, this is not the only work on mixture models. Citing only this does not capture the big picture of the field.]} posit two or more distinct populations of local molecular environment \comment{[populations of what?]}: a low-density, tetrahedrally ordered form, and a denser, less-ordered form, whose relative fractions shift with temperature and pressure. The two pictures have proved remarkably hard to separate because they reproduce the same macroscopic behavior: decades of thermodynamic and scattering data are consistent with both, so unambiguous evidence for either has remained elusive. \cite{gallo_water_2016, handle_supercooled_2017}. 
+
+\comment{[Narten's work is not about macroscopic behavior or any of the thermodynamic anomalies. It is X-ray diffraction on the structure. Are you sure this is correctly cited and it is what you want ot say? I think it is not consistent with the sentence written here. Eisenberg is a whole book -- is the whole book consistent with the sentence before this?]}
+\comment{[The logic from sentence to sentence and within each sentence is so vague in this paragraph.]}
+
+% --- PARA 2: explain two state model--
+Recent computational work by Shi and Tanaka has given the two-state picture considerably firmer footing~\cite{shi_direct_2020,russo_understanding_2014,shi_microscopic_2018}. In this framework, which we refer to hereafter as the two-state model, water is a dynamic mixture of locally favored tetrahedral structures (LFTS)---stabilized by four hydrogen bonds, with low density and high local symmetry---and disordered normal-liquid structures (DNLS), with broken tetrahedral symmetry, higher density, and greater entropy. Central to their analysis is the
+structural descriptor $\zeta$, which quantifies translational order in the second coordination shell~\cite{russo_understanding_2014}. The distribution $P(\zeta)$ is bimodal in several classical water models, and the
+oxygen--oxygen partial structure factor $S(k)$ carries two overlapping peaks within its apparent first diffraction peak: a first sharp diffraction peak at $k_{T1} = k r_{\mathrm{OO}}/2\pi \approx 3/4$ from the tetrahedral
+LFTS geometry, and an ordinary-liquid peak at $k_{D1} \approx 1$ from DNLS~\cite{shi_direct_2020,shi-2019}. These two peak positions are a concrete, first-principles prediction of the model---and the target any independent
+test of the two-state picture must reproduce. \comment{[No. Two-peak in a distribution function does not imply there is a two-state picture. ]}
+
+% --- PARA 3: ML lit review + gap, merged. Lands circularity as the trap. ---
+Machine learning offers a way to test this prediction without presupposing it. \comment{[You need to provide some background before making the assertion. Additionally, this sounds like a sweeping statement, as machine learning is way too general.]} Neural networks can identify phases and locate transitions directly from raw configurations, with no hand-tuned order parameters~\cite{carrasquilla_machine_2017}, and water has become a natural proving ground \comment{[Why is water ``natural proving ground''? What are we trying to prove?]}. Gartner and co-workers paired a near-quantum machine-learned potential with free-energy sampling and found behavior consistent with a liquid--liquid transition~\cite{gartner_signatures_2020}; Donkor and co-workers showed that only nonlocal descriptors resolve high- and low-density domains near the critical point~\cite{donkor_beyond_2024}; and Li and co-workers trained an unsupervised autoencoder on large molecular-dynamics trajectories and recovered molecular-level evidence for two interconvertible structures~\cite{li_evidence_2026}. \comment{[The previous few sentences were exactly like the example I talked about in the presentation: ``Dad is mowing, mom is shopping, I am listening to music.'' Where is the connection and logic?]} However, a common limitation runs through the structural evidence for two states. \comment{[A sweeping statement again.]} Earlier structure-factor work \comment{[What's the ``earlier structure-factor'' work that you are referring to?]} resolved the two populations largely through a single hand-crafted descriptor and a $\zeta$-binned scattering decomposition, so the classification and its reciprocal-space signature were read off the same quantity~\cite{shi_direct_2020}; the more recent deep-learning approaches recovered the states from opaque, tuned reaction coordinates validated only against an internal volume--fraction relation~\cite{li_evidence_2026} \comment{[Is \cite{li_evidence_2026} the ``more recent deep-learning appraoches''? What are they?]}. In each case the evidence is, to some degree,
+circular: the observable used to \emph{define} the states is essentially the one used to \emph{confirm} them. What has been missing is a classification validated against a physical observable the classifier never sees. \comment{[You might be saying something here. But it is not clear to me what you mean. Try harder? If this is an important statement, it needs to be a paragraph in itself.]}
+\comment{[When you discuss other people's work, you need to be very specific.]}
+
+\comment{[After you have made the scientific gap clear, introduce what you are doing in this work.]}
+
+
+
+
+% 2. RESULTS
+
+\section{Results and Discussions}
+Since the two-state nature of water is the most evident in supercooled water \cite{russo_understanding_2014}, we develop the water classification method by testing it on the TIP4P/2005 water models $T = 253.15\,\mathrm{K}$ ($-20\,^\circ$C) and 1 atm. TIP4P/2005 is chosen because it has demonstrated bimodal distribution in the local translational order parameter in earlier works \cite{russo_understanding_2014}. To obtain the trajectory data, we perform the simulations of 1024 water molecules at experimentally-observed density $\rho = $ ? g/cm (cite) with the Langevin integrator \cite{Izaguirre2010} . The simulations are performed independently three times. After initial equilibration for 10 ns, we record the positions of water molecules every 10 ps for 50 ns, producing 5000 frames or 5,120,000 single-water data points per independent simulation. 
+
+
+Based on the raw trajectory from molecular dynamics, each single-water data point carries its relative position to all other molecules in the system. While this provides a complete geometric snapshot, it also contains significant noise from distant, uncorrelated molecules. To extract meaningful physical insight efficiently, we first reduce the raw spatial coordinates to a small set of features that capture the salient character of each molecule's local environment. Since tetrahedrality is central to the local environment of water\cite{errington_relationship_2001,russo_understanding_2014,tanaka_revealing_2019}, we choose the orientational order parameter $q$ and the translational tetrahedral parameter $S_k$ to describe the local tetrahedrality around each molecule\cite{chau_new_1998,errington_relationship_2001,duboue-dijon_characterization_2015}. The organization between the first and second solvation shells is also believed to be central, so we additionally include the local structure index, LSI, and the local translational order parameter $\zeta$, both of which have suggested bimodal features in water's local structure\cite{shiratani_growth_1996,russo_understanding_2014}. Detailed definitions of these parameters are given in the Methods Section. Together, these four parameters capture the most central information about the geometry of each water molecule. The relative density of feature points projected on to the $q$-$\zeta$ plane is shown in  Fig.~\ref{fig:classification_comparison}a, suggesting a continuous distribution in the feature space.
+
+[change clustering to classification --> and cluster to classify (prevent confusion)]
+[remove the cluster from the alogirthm name, rephrase it to classification]
+
+Each water molecule is described by an order-parameter feature point ($q$, LSI, $S_k$, $\zeta$) in the four-dimensional feature space, with every order parameter standardized to the range $[0,1]$ before being passed to the \edit{water classification} pipeline. We first test the data with the K-means algorithm\cite{lloyd_least_1982,macqueen_methods_1967,ikotun_k-means_2023}, a common first choice, which partitions the feature points into a chosen number of groups so as to minimize the total \edit{within-classified-group} sum of squared distances to the group centroids. Setting \edit{the number of classified groups} to two, we obtain a split into two groups of comparable size ($57.7\%$ and $42.3\%$; Supplementary Fig.~S1). However, since K-means assigns every molecule to its nearest centroid, it places a hard boundary through the feature space, allowing no overlap in the feature space. However, as we can observe, there is a substantial amount of points near the boundary ---  separating these feature points forcefully by a hard boundary may introduce substantial errors in the assignment of groups. Since water's two local environments are not cleanly separated but overlap through a continuous band of intermediate configurations --- some of them might be in transition between two structural states --- a hard boundary drawn through the feature space forces the ambiguous molecules into one group or the other. This is reflected in the silhouette score\cite{rousseeuw_silhouettes_1987} (which rates how much closer a molecule sits to its own \edit{group} than to the other, on a scale from $-1$ to 1): the K-means partition reaches a score of $0.2418$, reflecting a boundary cut through a populated region rather than an empty gap. A more realistic classification method has to resolve the grouping in  the overlapping regions in the feature space.  
+
+We therefore turn to a Gaussian mixture model (GMM), which represents the data as a superposition of Gaussian components and assigns each molecule a soft probability of belonging to each state rather than a hard label\cite{deprez-2024,dempster_maximum_1977}. Soft assignment is better suited to overlapping feature points, and is further motivated by the fact that the distribution in local translational order parameter is sum of two Gaussian distribution\cite{shi_direct_2020}. When fit with two components, the GMM produces essentially the same split as K-means (Supplementary Fig.~S2), but its silhouette score is even lower ($0.2144$). This suggests the challenge of assigning groups in the a large overlap region. 
+
+The failures of K-means and GMM indicate that there is a substantial population of water molecules in the transition region. To overcome this challenge and yet identify the two states, we introduce a strategy to first remove feature points for transitioning molecules that are ambiguous to classify. If the two-state model is a good description of water, we expect the feature points at the transition region to have a lower density because of the inherent instability during transition. If water did not have two stable and distinct local structures, but a continuous one state, this strategy would not work. Therefore, the best strategy to identify water molecules in the transition region is to use a density-based model, and we choose the density-based spatial clustering of applications with noise (DBSCAN) for this purpose. \cite{ester_density-based_1996}
+
+%We therefore add a density-based denoising step before the mixture model.
+DBSCAN groups feature points that lie in contiguous high-density regions of the feature space and labels those in sparse, low-density regions as noise, leaving them unassigned\cite{ester_density-based_1996}. Here, the two high-density regions are the cores of the two structural states, while the sparse, low-density points arise in two distinct places: the transition region between the states, and the outer tails of each state, where a molecule is confidently one structure but at extreme order-parameter values. However, on its own, DBSCAN does not recover the two structural states: as DBSCAN requires one to specify the extent of the groups in the feature space, the result would be biased by the input --- small radii fragment the data into dozens of spurious micro-groups, while larger radii merge everything into a single group. Furthermore, labelling all low-density points as noise would discard the confident tail molecules together with the ambiguous transitional ones. Therefore, we use DBSCAN not as the classifier but only as a tool to locate the two dense cores of the distribution and to reject gross outliers. 
+
+Thus, our strategy for identifying the two states is developed as follows. We first apply DBSCAN to locate the two dense cores, and use these clean cores to seed a two-component GMM, so that the mixture locks onto the two lobes rather than being distorted by the sparse points\cite{dempster_maximum_1977,bishop_pattern_2006}. Then, the fitted mixture assigns every molecule --- including those in the tails --- to the state of higher posterior probability, so that no confident molecule is discarded. Finally, we identify the transitional feature points from the density minimum between the two states: we project the molecules onto Fisher's linear discriminant axis, which optimally separates the two fitted components\cite{fisher_use_1936}, estimate the one-dimensional density along this axis, and label as transitional only those molecules lying in the low-density valley between the two modes, where the memberships of the two states are comparable\cite{menard_fuzzy_2000}. Because the confident tails remain assigned to their states, this cleaves the distribution only through its middle --- a clean cut through the sparse crossover --- rather than around the entire low-density periphery; the assignment is thus a three-way decision (LFTS, DNLS, or transition) in which the transitional label is reserved for genuinely ambiguous configurations rather than distant outliers\cite{yao_three-way_2010}. The extent of the transitional region is controlled by the neighborhood radius $\varepsilon$ and minimum neighbor count MinPts of the core-finding step, together with the valley depth --- the density threshold, expressed as a fraction of the two modal peak heights, below which a molecule in the valley is deemed transitional. We optimize these parameters by maximizing the Silhouette score of the resulting classification (Supplementary Fig.~S5). The pipeline for the classification is schematically illustrated in Fig.~\ref{fig:water_classification_workflow}. 
+
+\begin{figure*}[tp]
+  \centering
+  \includegraphics[width=15cm]{images/main/0_flowchart.png}
+    \caption{Machine-learning workflow for classifying local water structures from molecular dynamics (MD) simulations. We extract four structural order parameters  from the MD trajectory data: the tetrahedral order parameter q, the local structure index (LSI), the structural entropy $S_k$, and the density parameter $\zeta$, and then standardized to the [0, 1] range. DBSCAN  is then applied to identify (and optionally remove) transitional water molecules, after which a Gaussian mixture model (GMM) classifies the remaining molecules into two populations: the low-density, four-coordinated tetrahedral state (LFTS) and the disordered normal-liquid state (DNLS).
+    }
+  \label{fig:water_classification_workflow}
+\end{figure*}
+
+This DBSCAN--GMM pipeline yields the cleanest two-state separation. The DBSCAN step identifies about $23\%$ \comment{[update value for consistency]} of molecules as transitional and removes them; the GMM step then classifies the remaining molecules into two states. This pipeline gives a silhouette score of $0.2841$, the highest among the methods we tested (Fig.~\ref{fig:classification_comparison}b,d). We cross-check the result by replacing DBSCAN with HDBSCAN, a hierarchical extension that performs classification without the need for specifying the density threshold \cite{mcinnes_hdbscan_2017,malzer_hybrid_2020}. HDBSCAN removes a smaller fraction of molecules ($15.2\%$) and reaches a silhouette score of $0.2572$ (Supplementary Figs.~S3 and~S6). The two independent transitional-removal methods agree indicates the separation does not depend on the particular density threshold that we choose. The resulting classification of features points are shown in Fig.~\ref{fig:classification_comparison}b-d, suggesting xxx.
+
+\edit{However, neither the silhouette score nor these structural signatures establish that the split is physically real. Both are internal measures. The silhouette quantifies only how compact and separated the groups are in the same order-parameter space on which we clustered, so it can select the cleanest pipeline but cannot certify that the partition reflects two states rather than a single continuum; and the alignment of the classified states with the two modes of $\zeta$---the sharpest of the four parameters---is internal in the same way, since a bimodal parameter can arise without two thermodynamically meaningful populations. The decisive test is a physical one: if the two groups are genuinely LFTS and DNLS, they must carry the distinct structure factors that the two-state model predicts for tetrahedral versus disordered local order, which we examine next.}
+
+To determine whether the two classified groups of water molecules are structurally different,  we compute the averaged structure factor function $S(k)$ for molecules in each group, where $k$ is the wavenumber in the reciprocal space. The structure factor describes the local spatial correlation between molecules and can be measured with X-ray or neutron scattering. In a recent work, Shi and Tanaka showed that $S(k)$ has a first sharp diffraction peak at $kr_\text{OO}/2\pi \approx 0.75$ for a liquid with a tetrahedral network, while that for an ordinary close-packed liquid is a broad peak at around $kr_\text{OO}/2\pi \approx 1.05$, with  $r_\text{OO}$ is the average intermolecular distance. \comment{[cite Shi and Tanaka 2020]} Our DBSCAN-GMM pipeline identifies two groups of water with structure factor functions that display features of tetrahedral-network liquid and ordinary close-packed liquid (Fig.~\ref{fig:validation}a), indicating that the method successfully identifies two structurally different groups. Hereafter, following Shi and Tanaka, we label the two groups of water as locally-favored tetrahedral structures (LFTS) and the disordered normal-liquid structures (DNLS). 
+
+
+%\edit{our existing classification process} never used: the oxygen--oxygen partial structure factor $S(k)$,  computed for each \edit{classified water groups} of the DBSCAN--GMM classification via the Debye scattering equation directly from atomic coordinates. If the two \edit{classified water groups} were merely a convenient cut through a structural continuum, their structure factors should be alike. \edit{The partial structure factor measures how strongly oxygen--oxygen density correlations at a given separation contribute at wavevector $k$, so a sharp peak marks a well-defined recurring spacing in the liquid: a tetrahedral network produces a first sharp diffraction peak at low $k$ set by the extended tetrahedral repeat, whereas an ordinary close-packed liquid peaks at the higher wavevector characteristic of the nearest-neighbor distance.} They are not (Fig.~\ref{fig:validation}). The LFTS \edit{water group} shows a first sharp diffraction peak at $k_{T1} \approx 0.81$, the signature of tetrahedral ordering, while the DNLS \edit{water group} peaks at the ordinary-liquid position $k_{D1} \approx 1.05$. \comment{[Need to first prepare readers on the background on the first sharp diffraction peak and the ordinary-liquid position.]} Both positions match the two-state-model predictions $k_{T1} \approx 3/4$ and $k_{D1} \approx 1$~\cite{shi_direct_2020}---recovered here from a reciprocal-space quantity that entered neither the feature space nor the \edit{water classification process}.
+
+%We label the two retained populations by their order-parameter signatures: the high-$\zeta$, high-$q$, high-$S_k$ group as the locally favored tetrahedral structures (LFTS) and its counterpart as the disordered normal-liquid structures (DNLS) of the two-state model (Fig.~\ref{fig:classification_comparison}c). The removed molecules are not a distinct third state but configurations interconverting between the two---the diffuse interface expected of a dynamic mixture---consistent with their removal as transitional.
+
+The structural difference between the classified LFTS and DNLS states can be further confirmed when the structure factor is further decomposed for different values of $\zeta$ and decomposed in the $k$-$\zeta$ plane (Fig.~\ref{fig:validation}b-e). The $\zeta$-resolved structure factor shows the two groups to have distinct peaks that are far away in the $\zeta$-$k$ plane, further comfirming the two-state nature of water sampled at $-20~\circ$.
+
+
+
+%So far the two \edit{classified water groups} are defined entirely in order-parameter space. To test whether they mark a genuine physical distinction, we turn to an observable \edit{our existing classification process} never used: the oxygen--oxygen partial structure factor $S(k)$,  computed for each \edit{classified water groups} of the DBSCAN--GMM classification via the Debye scattering equation directly from atomic coordinates. If the two \edit{classified water groups} were merely a convenient cut through a structural continuum, their structure factors should be alike. \edit{The partial structure factor measures how strongly oxygen--oxygen density correlations at a given separation contribute at wavevector $k$, so a sharp peak marks a well-defined recurring spacing in the liquid: a tetrahedral network produces a first sharp diffraction peak at low $k$ set by the extended tetrahedral repeat, whereas an ordinary close-packed liquid peaks at the higher wavevector characteristic of the nearest-neighbor distance.} They are not (Fig.~\ref{fig:validation}). The LFTS \edit{water group} shows a first sharp diffraction peak at $k_{T1} \approx 0.81$, the signature of tetrahedral ordering, while the DNLS \edit{water group} peaks at the ordinary-liquid position $k_{D1} \approx 1.05$. \comment{[Need to first prepare readers on the background on the first sharp diffraction peak and the ordinary-liquid position.]} Both positions match the two-state-model predictions $k_{T1} \approx 3/4$ and $k_{D1} \approx 1$~\cite{shi_direct_2020}---recovered here from a reciprocal-space quantity that entered neither the feature space nor the \edit{water classification process}.
+
+
+%The total $S(k)$ over all molecules shows a single broad peak sitting between $k_{T1}$ and $k_{D1}$, so the apparent first diffraction peak of liquid water is itself a superposition of two overlapping contributions from structurally distinct subpopulations. The $\zeta$-resolved structure factor $S(k,\zeta)$ (Fig.~\ref{fig:validation}b,c) resolves these contributions directly: two ridges occupy separate $\zeta$ domains, the first sharp diffraction peak at $k_{T1}$ concentrated in the high-$\zeta$ (LFTS) region and the ordinary peak at $k_{D1}$ in the low-$\zeta$ (DNLS) region, mirroring the surfaces reported by Shi and Tanaka (cf.\ their Fig.~2D--E)~\cite{shi_direct_2020}.
+
+
+
+\begin{figure*}[tp]
+  \centering
+  \includegraphics[width=15cm]{images/main/1_clustering.png}
+    \caption{\textbf{Unsupervised classification of liquid water into two
+    local structural states.} All data are for TIP4P/2005 water at
+    $T = 253.15$~K ($-20\,^\circ$C), at which the two populations coexist in
+    comparable proportions; classification uses the hybrid
+    DBSCAN--GMM pipeline acting on the standardized
+    four-dimensional order-parameter vector $(q,\mathrm{LSI},S_k,\zeta)$.
+    \textbf{(a)} Joint density of all configurations in the
+    $q$--$\zeta$ plane \emph{before} classification, where $q$ is the
+    tetrahedral (orientational) order parameter and $\zeta$ the local
+    translational order parameter; marginal histograms appear along each
+    axis. The single broad, skewed maximum is the continuum-like appearance
+    that the water classification resolves. \textbf{(b)} The same $q$--$\zeta$
+    distribution \emph{after} classification, resolved into locally favored
+    tetrahedral structures (LFTS, blue) and disordered normal-liquid
+    structures (DNLS, red); molecules in the low-density transition zone
+    flagged as noise are shown in grey. \textbf{(c)} Per-state probability
+    density functions of the four order parameters, $f(q)$, $f(\mathrm{LSI})$,
+    $f(S_k)$ and $f(\zeta)$, where LSI is the local structure index and $S_k$
+    the translational tetrahedral parameter. LFTS molecules carry higher $q$,
+    $S_k$ and $\zeta$, with the bimodal separation sharpest in $\zeta$.
+    \textbf{(d)} $q$--$\zeta$ scatter of the classified molecules (LFTS blue,
+    DNLS red, transition grey), showing the two dense lobes and the sparse
+    interconverting region between them. The silhouette score for this
+    pipeline is $0.2841$, the highest among the methods tested.
+    }
+  \label{fig:classification_comparison}
+\end{figure*}
+
+
+
+
+
+[replace the superposition with noise only plotting, and plot them together (label the rest as b,c,d,e, and that as a big one as a]
+\begin{figure*}[tp]
+  \centering
+  \includegraphics[width=13cm]{images/main/2_validation.png}
+  \caption{%
+    \textbf{\edit{Per classified water group} oxygen--oxygen partial structure factors $S(k)$ for TIP4P/2005 water at $T = 253.15$~K}, computed via the Debye scattering Eq.~\eqref{eq:debye} from the DBSCAN--GMM classification.
+    \textbf{(a)} \emph{Left}, \edit{per-group} $S(k)$: the LFTS \edit{water-group} shows a
+    first sharp diffraction peak at $k_{T1} \approx 0.81$
+    (in $k\,r_{\mathrm{OO}}/2\pi$), the signature of tetrahedral ordering,
+    whereas the DNLS \edit{water-group} peaks at the ordinary-liquid position
+    $k_{D1} \approx 1.05$ and shows no first sharp diffraction peak; shaded bands mark the two
+    regions. \emph{Right}, the total $S(k)$ over all molecules (black) is the
+    superposition of the two per-group contributions, producing a singled
+    broad apparent first diffraction peak located \emph{between} $k_{T1}$ and
+    $k_{D1}$. Both peak positions agree quantitatively with the
+    two-state-model predictions $k_{T1} \approx 3/4$ and $k_{D1} \approx 1$.
+    \textbf{(b)} $\zeta$-resolved structure factor $S(k,\zeta)$ as
+    three-dimensional surfaces for the LFTS (\emph{left}) and DNLS
+    (\emph{right}) states. The blue circle marks the first sharp diffraction peak at $k_{T1}$
+    concentrated in the high-$\zeta$ domain; the red circle marks the
+    ordinary-liquid peak at $k_{D1}$ concentrated in the low-$\zeta$ domain.
+    \textbf{(c)} The same $S(k,\zeta)$ as two-dimensional contour maps;
+    vertical dashed lines mark $k_{T1}$ (blue, first sharp diffraction peak) and $k_{D1}$ (red,
+    ordinary peak). Each group's $S(k)$ maximum coincides with the other's
+    minimum, confirming that the two populations are physically distinct
+    rather than an artifact of the classification scheme.
+  }
+  \label{fig:validation}
+\end{figure*}
+
+
+\comment{Generality. What do your results contribute to the debate?}
+A single state point cannot show whether this signature is generic, so we apply the DBSCAN--GMM pipeline to TIP4P/2005 water at seven temperatures from -30$\,^\circ$C to +30$\,^\circ$C (Fig.~\ref{fig:generality}a,b). The two \edit{classified water groups} respond to cooling as the two-state model predicts: the LFTS peak at $k_{T1}$ strengthens monotonically as the LFTS fraction $s$ grows toward the low-density amorphous limit~\cite{shi-2019} (Fig.~\ref{fig:generality}c), while the DNLS peak near $k_{D1}$ is nearly temperature-independent. The trend holds across the entire supercooled range examined.
+ 
+The signature also survives a change of water model. Running the same pipeline on three models \edit{(TIP4P/2005, TIP5P, and SWM4-NDP)}  at T = -20$\,^\circ$C (Fig.~\ref{fig:generality}d), we find a clear first sharp diffraction peak in every LFTS water group (solid curves)---tetrahedral ordering is a robust feature of the LFTS population, strongest in TIP5P, then TIP4P/2005, then SWM4-NDP. The DNLS \edit{group} (dashed) are more uniform, their ordinary-liquid peak at $k_{D1} \approx 1.05$ holding steady across models, with SWM4-NDP showing the strongest DNLS signal.
+
+% FIGURE 3 -- robustness and generality
+\begin{figure*}[tp] 
+  \centering
+  \includegraphics[width=13cm]{images/main/3_generality.png}
+  \caption{
+    \textbf{Two-state signature is generic across temperature and water model.}
+    \textbf{(a,b)} Temperature dependence of the \edit{per-group} oxygen--oxygen partial structure factor $S(k)$ for (a) the LFTS state and (b) the DNLS state, for TIP4P/2005 water from $-30\,^\circ$C to $+30\,^\circ$C (colour scale). The vertical dashed lines mark the positions of the first sharp diffraction peak for tetrahedral material, $k_{T1}$, and the ordinary liquid peak, $k_{D1}$. The first sharp diffraction peak at $k_{T1}$ strengthens monotonically upon cooling as the LFTS fraction grows, while the DNLS peak near $k_{D1}$ remains essentially stable.
+    \textbf{(c)}  LFTS population fraction $s$ versus temperature (blue) and the fraction of molecules removed as transition-zone noise (grey); the shaded region marks the supercooled regime.
+    \textbf{(d)} Per-group $S(k)$ across three water models (TIP4P/2005, TIP5P, SWM4-NDP) at $T = -20\,^\circ$C, with LFTS (solid) and DNLS (dashed) curves; all models produce a clear first sharp diffraction peak in the LFTS water group and a stable ordinary liquid peak in the DNLS water group.
+  }
+  \label{fig:generality}
+\end{figure*}
+
+
+
+% 3. DISCUSSION AND CONCLUSIONS
+
+\section{Conclusions}
+\label{sec:discussion}
+
+Taken together, our results support a two-state picture of liquid water. Without any prior structural knowledge built in, the unsupervised clustering recovers LFTS and DNLS as two distinct populations from the four-dimensional order-parameter space, and the DBSCAN--GMM pipeline does this most cleanly (silhouette score $0.2841$) by discarding the ambiguous transition-zone molecules before classification. Both unsupervised baselines (K-Means and GMM) independently converge on the same two-state partition, indicating that the bimodality is a property of the data rather than of any single algorithm.
+
+More importantly, an independent physical observable validates the cluster assignments. Because the clustering operates in order-parameter space while the structure factor $S(k)$ is a reciprocal-space quantity computed directly from atomic coordinates via the Debye equation, the two analyses share no common descriptor. The LFTS cluster peaks at $k_{T1} \approx 0.81$ and the DNLS cluster at $k_{D1} \approx 1.05$, in quantitative agreement with the two-state-model predictions $k_{T1} \approx 3/4$ and $k_{D1} \approx 1$. The apparent first diffraction peak of liquid water is thus resolved as a superposition of two overlapping contributions from structurally distinct subpopulations, and the $\zeta$-resolved surface $S(k,\zeta)$ localizes the first sharp diffraction peak in the high-$\zeta$ (LFTS) domain and the ordinary-liquid peak in the low-$\zeta$ (DNLS) domain, consistent with the surfaces reported by Shi and Tanaka.
+
+This two-state signature is not specific to a single state point. Across the supercooled-to-ambient range ($-30$ to $+30\,^\circ$C), the first sharp diffraction peak strengthens monotonically upon cooling as the LFTS fraction grows toward the low-density amorphous limit, while the DNLS peak remains essentially stable; and the signature persists across three independent water models (TIP4P/2005, TIP5P, and SWM4-NDP), with tetrahedral ordering of the LFTS population a robust feature in every case. The convergence of ML clustering in order-parameter space and structure-factor validation in reciprocal space therefore provides a compelling, model-independent case for genuine structural heterogeneity in liquid water.
+
+Several caveats temper this interpretation. The silhouette scores are modest in absolute terms, as expected for thermally broadened, strongly overlapping populations whose mutual boundary is genuinely diffuse. The transition-zone molecules removed by the density-based denoising step are best understood as configurations interconverting between the two states, not as a distinct third structural species. Our analysis is also restricted to classical, rigid water models; confirming the same reciprocal-space signature in polarizable or \emph{ab initio} simulations, and ultimately in scattering experiments, remains an important next step.
+
+In summary, by combining unsupervised classification with an independent reciprocal-space validation that shares no descriptor with the clustering, we provide model-independent evidence that the two-state signature in the structure factor reflects real structural heterogeneity in liquid water rather than an artifact of the classification scheme. This clustering-plus-validation strategy is general and could be applied to other liquids in which competing local structures are suspected.
+
+
+\FloatBarrier
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 4. MATERIALS AND METHODS
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Materials and Methods}
+
+\subsection{Molecular Dynamics Simulations}
+To provide microscopic configurations of water molecules for our analysis, we carry out classical molecular dynamics simulations for systems of $N = 1024$ water molecules in the canonical (NVT) ensemble using the OpenMM simulation package~\cite{eastman_openmm_2015} with the rigid, non-polarizable TIP4P/2005~\cite{abascal_general_2005} and TIP5P~\cite{mahoney_five-site_2000} models, which show strong tetrahedral ordering signatures~\cite{shi_direct_2020}. Simulations are run at $5\,^\circ$C increments from $-30\,^\circ$C to $30\,^\circ$C, with the system density set to the experimental value at each temperature. The Schottky temperatures---at which the two populations are approximately equal---are $T_{s=1/2} \approx 237.8$~K for TIP4P/2005 and $T_{s=1/2} \approx 255.5$~K for TIP5P~\cite{shi_direct_2020}. For $T=-30\,^\circ$C to $30\,^\circ$C, we perform 3 independent simulations for each model using the Langevin integrator at 1~fs timestep with a friction coefficient 20~ps$^{-1}$. After equilibrating the system for 10~ns, the system is sampled every 10~ps for 50~ns. 
+
+\subsection{Structural Order Parameters}
+\label{sec:structural_order_parameter}
+We compute four structural order parameters for each molecule to describe the local water arrangements: (i) orientational order parameter, $q$; (ii) local structure index, LSI; (iii) translational tetrahedral parameter, $S_k$; and (iv) local translational order parameter, $\zeta$. Full simulation settings and clustering details are collected in Supplementary Note~1. For every trajectory frame sampled from the MD simulation, the full set of order parameters is computed for each water molecule. For simplicity, each water molecule is represented by its oxygen atom. Intermolecular distances are computed with the MDTraj package~\cite{mcgibbon_mdtraj_2015}, accounting for periodic boundary conditions.
+
+\textit{Orientational order parameter, $q$.} The parameter $q$ measures the extent to which the angular positions of the four nearest neighbors of a water molecule form a tetrahedral arrangement~\cite{chau_new_1998,errington_relationship_2001}:
+\begin{equation}
+q = 1 - \frac{3}{8}\sum_{(j,k)}\left(\cos\psi_{jk}+\frac{1}{3}\right)^{2},
+\label{eq:q}
+\end{equation}
+where the sum runs over all pairs $(j,k)$ among the four nearest neighbors of a molecule, and $\psi_{jk}$ is the angle subtended at the central molecule by neighbors $j$ and $k$. The parameter ranges from $-3$ to $1$, with $q=1$ representing a perfect tetrahedron.
+
+\textit{Local structure index, LSI.} LSI quantifies the gap between the first and second hydration shells surrounding each molecule~\cite{shiratani_growth_1996}:
+\begin{equation}
+\text{LSI} = \frac{1}{n}\sum_{i=1}^{n}\!\left(\Delta_i - \bar{\Delta}\right)^{2},
+\label{eq:LSI}
+\end{equation}
+where $\Delta_i = r_{i+1} - r_i$ represents the distance gap between consecutively ordered oxygen neighbors within a cutoff of 3.7~\AA, and $\bar{\Delta}$ is the mean gap. A large LSI indicates well-separated hydration shells.
+
+\textit{Translational tetrahedral parameter, $S_k$.} $S_k$ measures the radial uniformity of the four nearest-neighbor distances~\cite{duboue-dijon_characterization_2015}:
+\begin{equation}
+S_k = 1 - \frac{1}{3}\sum_{k=1}^{4}\frac{(r_k - \bar{r})^{2}}{4\bar{r}^{2}},
+\label{eq:Sk}
+\end{equation}
+where $r_k$ is the distance to the $k$th nearest neighbor and $\bar{r}$ is their mean. $S_k = 1$ for a perfect tetrahedron.
+
+\textit{Local translational order parameter, $\zeta$.} Russo and Tanaka~\cite{russo_understanding_2014} introduced $\zeta$ to characterize translational order in the second coordination shell:
+\begin{equation}
+\zeta = r_{\text{nearest non-HB}} - r_{\text{farthest HB}},
+\label{eq:zeta}
+\end{equation}
+where $r_{\text{farthest HB}}$ is the distance to the most distant hydrogen-bonded neighbor and $r_{\text{nearest non-HB}}$ is the distance to the closest non-hydrogen-bonded neighbor. Large positive $\zeta$ indicates clear shell separation (LFTS); $\zeta \approx 0$ or negative indicates shell interpenetration (DNLS).
+
+We compute all four parameters per molecule per frame and store them as a feature matrix of dimensions $N_{\text{samples}} \times 4$, where $N_{\text{samples}} = N_{\text{frames}} \times N_{\text{molecules}} \times N_{\text{runs}}$. The four order parameters are standardized to the unit interval $[0,1]$ prior to clustering.
+
+\subsection{Clustering Methods}
+\label{sec:clustering_algorithm}
+
+\subsubsection{Baseline: K-Means and GMM}
+We apply K-Means~\cite{ikotun_k-means_2023}, which partitions the standardized feature space into two disjoint clusters ($k=2$) by iteratively assigning molecules to the nearest centroid. Centroids are initialized via the K-Means++ algorithm available in the scikit-learn package~\cite{scikit-learn}, with $n_{\text{init}} = 20$ restarts and a 300-iteration maximum. Building on the finding that two-state frameworks yield nearly Gaussian order-parameter distributions~\cite{shi_direct_2020}, we also fit a GMM as a more robust probabilistic alternative~\cite{deprez-2024}. We fit GMMs with $k = 2$ through $4$ components and compare them using BIC and AIC to test for additional structural states (Supplementary Fig.~S7).
+
+\subsubsection{Hybrid Density--GMM Pipelines}
+DBSCAN~\cite{ester_density-based_1996} identifies clusters as contiguous high-density regions and marks low-density boundary molecules as noise. In the hybrid pipelines, we apply DBSCAN as a denoising step, so that molecules in the low-density transition zone between the two structural states are identified and removed; GMM is then fitted to the denoised subset. This two-stage approach combines the noise-identification capability of density-based algorithms with the probabilistic assignment of GMM, yielding substantially higher silhouette scores. The DBSCAN hyperparameters $\varepsilon$ (neighborhood radius in units of the standardized feature space) and MinPts (minimum cluster size) are selected via a systematic grid search (Supplementary Note~2 and Supplementary Figs.~S5 and~S6).
+
+[define everything, from per water molecule structure factor validation and window function from tanaka]
+\subsection{Structural Validation via Structure Factor Calculation}
+\label{sec:structure_factor}
+The two-state model demonstrated that the $\zeta$-resolved structure factor $S(k,\zeta)$ reveals two distinct peaks, establishing a powerful connection between microscopic structural descriptors and experimentally accessible scattering signatures. We build on this foundation by asking whether the same reciprocal-space signatures emerge when cluster assignments are derived through a multi-dimensional ML pipeline. Specifically, we map cluster labels back onto the MD trajectories and compute the oxygen--oxygen partial structure factor separately for each cluster subpopulation using the Debye scattering equation~\cite{debye-1915}
+\begin{equation}
+S(k) = 1 + \frac{1}{N}\sum_{i=1}^{N}\sum_{\substack{j=1 \\ j\neq i}}^{N}\frac{\sin(k r_{ij})}{k r_{ij}}\,W(r_{ij}),
+\label{eq:debye}
+\end{equation}
+where $W(r_{ij}) = \sin(\pi r_{ij}/r_c)/(\pi r_{ij}/r_c)$ is a sinc window function that suppresses Gibbs ringing artifacts from the hard distance cutoff $r_c = 1.5$~nm. Because the clustering draws on a multi-dimensional feature space without privileging any single order parameter, successfully recovering the characteristic $k_{T1}$ and $k_{D1}$ peaks provides an independent, complementary confirmation of the two-state model.
+
+[add citation journal names and look at nature physics paper for reference on ML citation]
+
+\FloatBarrier
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% BIBLIOGRAPHY
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\newpage
+\bibliographystyle{achemso}
+\bibliography{bib}
+\end{document}

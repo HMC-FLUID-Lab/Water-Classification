@@ -63,7 +63,7 @@ if want_stage 1; then
         tip5p)     python 1_simulate/runWater_tip5p.py ;;
         swm4ndp)
             (cd data/simulations/swm4ndp && \
-             python "$SCRIPT_DIR/1_simulate/runWater_swm4ndp_multitemp.py")
+             python "$REPO_ROOT/1_simulate/runWater_swm4ndp_multitemp.py")
             ;;
         *) echo "Unknown model: $MODEL"; exit 1 ;;
     esac
@@ -76,49 +76,48 @@ if want_stage 2; then
 fi
 
 # ─── Stage 3: clustering ─────────────────────────────────────────────────────
-if want_stage 3; then
+run_clustering_pipeline() {
+    local skip_sk="${1:-false}"
+    local out_dir="results/clustering/${MODEL}_${TEMP}_dbscan_gmm"
+    local cmd=(
+        python pipeline/auto_cluster_pipeline.py
+        --mat-file "data/order_params/OrderParam_${MODEL}_${TEMP}_${RUN}.mat"
+        --zeta-file "data/order_params/OrderParamZeta_${MODEL}_${TEMP}_${RUN}.mat"
+        --dcd-file "data/simulations/${MODEL}/dcd_${MODEL}_${TEMP}_N1024_${RUN}_0.dcd"
+        --pdb-file "data/simulations/${MODEL}/inistate_${MODEL}_${TEMP}_N1024_${RUN}.pdb"
+        --method dbscan_gmm
+        --eps 0.05
+        --min-samples 30
+        --n-runs 1
+        --n-molecules 1024
+        --model-name "$MODEL"
+        --temperature "$TEMP"
+        --output-dir "$out_dir"
+    )
+    if [[ "$skip_sk" == "true" ]]; then
+        cmd+=(--skip-structure-factor)
+    fi
+    "${cmd[@]}"
+}
+
+if want_stage 3 && want_stage 4; then
+    print_stage "3+4" "Clustering + per-cluster structure factor"
+    run_clustering_pipeline false
+elif want_stage 3; then
     print_stage 3 "Clustering  (DBSCAN → GMM)"
-    OUT_CLUST="results/clustering/${MODEL}_${TEMP}_dbscan_gmm"
-    python 3_clustering/water_clustering.py \
-        --mat_file  "data/order_params/OrderParam_${MODEL}_${TEMP}_${RUN}.mat" \
-        --zeta_file "data/order_params/OrderParamZeta_${MODEL}_${TEMP}_${RUN}.mat" \
-        --n_runs 1 \
-        --method dbscan_gmm \
-        --eps 0.05 --min_samples 30 \
-        --features zeta_all \
-        --out_dir "$OUT_CLUST"
-fi
-
-# ─── Stage 4: structure factor ───────────────────────────────────────────────
-if want_stage 4; then
+    run_clustering_pipeline true
+elif want_stage 4; then
     print_stage 4 "Per-cluster structure factor"
-    OUT_CLUST="results/clustering/${MODEL}_${TEMP}_dbscan_gmm"
-    MATRIX_DIR="results/clustering/cluster_labels_matrices"
-    mkdir -p "$MATRIX_DIR"
-    MATRIX_CSV="$MATRIX_DIR/cluster_labels_matrix_${MODEL}_${TEMP}_dbscan_gmm.csv"
-
-    python 4_structure_factor/convert_cluster_labels.py \
-        --input  "$OUT_CLUST/cluster_labels.csv" \
-        --output "$MATRIX_CSV" \
-        --n-runs 1 --n-molecules 1024 \
-        --label-column label_dbscan_gmm
-
-    python 4_structure_factor/structure_factor_bycluster.py \
-        --dcd-file       "data/simulations/${MODEL}/dcd_${MODEL}_${TEMP}_N1024_${RUN}_0.dcd" \
-        --pdb-file       "data/simulations/${MODEL}/inistate_${MODEL}_${TEMP}_N1024_${RUN}.pdb" \
-        --zeta-file      "data/order_params/OrderParamZeta_${MODEL}_${TEMP}_${RUN}.mat" \
-        --cluster-labels "$MATRIX_CSV" \
-        --cluster-only \
-        --model-name "$MODEL" \
-        --temperature "${TEMP#T}" \
-        --output-dir "results/structure_factor/${MODEL}_${TEMP}_dbscan_gmm"
+    echo "Stage 4 is now run by pipeline/auto_cluster_pipeline.py together with Stage 3."
+    echo "Run stages 3+4 together, or use pipeline/auto_cluster_pipeline.py directly."
+    exit 1
 fi
 
 # ─── Stage 5: paper figures ──────────────────────────────────────────────────
 if want_stage 5; then
     print_stage 5 "Paper figures"
-    python 5_paper_figures/generate_paper_figures.py \
-        --out-dir "results/paper_figures"
+    python 5_paper_figures/make_main_figures.py
+    python 5_paper_figures/make_si_figures.py
 fi
 
 echo

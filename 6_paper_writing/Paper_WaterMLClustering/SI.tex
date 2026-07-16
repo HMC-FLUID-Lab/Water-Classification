@@ -1,0 +1,342 @@
+\documentclass[aps,amsmath,amssymb,onecolumn,superscriptaddress,nofootinbib]{revtex4-2}
+\usepackage[utf8]{inputenc}
+
+\setcitestyle{super}
+
+\usepackage{graphicx}
+\usepackage{dcolumn}
+\usepackage{bm}
+\usepackage{amsmath}
+\usepackage{booktabs}
+\usepackage{gensymb}
+\usepackage{placeins}
+
+% --- Supplementary numbering: Supplementary Note / Fig. S# / Table S# / Eq. S# ---
+\renewcommand{\thesection}{Supplementary Note \arabic{section}}
+\renewcommand{\thesubsection}{\arabic{section}.\arabic{subsection}}
+\renewcommand{\thefigure}{S\arabic{figure}}
+\renewcommand{\thetable}{S\arabic{table}}
+\renewcommand{\theequation}{S\arabic{equation}}
+
+\begin{document}
+
+\title{Supplementary Information\\[4pt]
+\large Two structural states in liquid water revealed by unsupervised classification}
+\author{Yiqi Yao}
+\author{Diya Sanghi}
+\author{Akanksha D. Chokshi}
+\author{Minwoo Choi}
+\author{Haiqin Wang}
+\author{Bilin Zhuang}
+\email{bzhuang@hmc.edu}
+\affiliation{Department of Chemistry, Harvey Mudd College, 301 Platt Boulevard, Claremont, California 91711}
+\affiliation{Yale-NUS College, Singapore 138527, Singapore}
+\date{\today}
+
+\maketitle
+
+\noindent
+This Supplementary Information provides the extended methods, the full set of
+clustering-robustness analyses, and the data and reproducibility notes that
+support the main text. Supplementary Notes~1--4 are referenced from the main
+text where relevant. Throughout, figures and tables of this document are
+prefixed with ``S'' (e.g.\ Fig.~S1, Table~S1); references of the form ``Fig.~1''
+without the prefix point to the main-text figures. All quantitative results are
+reported for the TIP4P/2005 model at $T=-20\,^{\circ}$C ($253.15$~K) unless
+stated otherwise, the condition near which the two populations coexist in
+comparable proportions.
+
+\tableofcontents
+
+%=======================================================================
+\section{Extended Methods}
+\label{sn:methods}
+
+This note expands the Materials and Methods of the main text with the full
+simulation protocol and clustering settings, at a level sufficient for
+reproduction. The structural order parameters and the per-cluster
+structure-factor computation are defined in the main-text Methods and are not
+repeated here.
+
+\subsection{Molecular dynamics simulations}
+\label{sn:md}
+
+We carry out classical molecular dynamics (MD) simulations of $N=1024$ water
+molecules in the canonical (NVT) ensemble with the OpenMM
+package. The primary analyses use the rigid,
+non-polarizable TIP4P/2005 and
+TIP5P models, which reproduce strong tetrahedral
+ordering; the polarizable SWM4-NDP model is used as an
+additional cross-check (\ref{sn:data}). For each model the
+box volume is fixed to reproduce the experimental density at the corresponding
+temperature, and simulations are run at $5\,^{\circ}$C increments from
+$-30\,^{\circ}$C to $+30\,^{\circ}$C using a Langevin integrator with a
+$1$~fs timestep and a friction coefficient of $20$~ps$^{-1}$. After $10$~ns of
+equilibration, configurations are sampled every $10$~ps over a $50$~ns
+production run. We perform $20$ independent runs per condition, yielding
+$N_{\mathrm{samples}} = 20{,}480$ molecular configurations per temperature and
+model. The Schottky temperatures, at which the two populations are
+approximately equal, are $T_{s=1/2}\approx 237.8$~K for TIP4P/2005 and
+$T_{s=1/2}\approx 255.5$~K for TIP5P; $T=-20\,^{\circ}$C
+therefore lies close to the TIP4P/2005 coexistence point, which is why we use it
+as the reference condition.
+
+\begin{table}[t]
+  \centering
+  \caption{\textbf{Simulation conditions.} Water models, ensemble, and sampling
+  used in this work. Densities are set to the experimental value at each
+  temperature; $T_{s=1/2}$ is the Schottky temperature at which the two
+  populations are approximately equal.}
+  \label{tab:conditions}
+  \begin{tabular}{lccccc}
+    \toprule
+    Model & Type & $T$ range & $T_{s=1/2}$ & Runs & Configs/condition \\
+    \midrule
+    TIP4P/2005 & rigid, non-pol. & $-30$ to $+30\,^{\circ}$C & $237.8$~K & 20 & $20{,}480$ \\
+    TIP5P      & rigid, non-pol. & $-30$ to $+30\,^{\circ}$C & $255.5$~K & 20 & $20{,}480$ \\
+    SWM4-NDP   & polarizable     & $-20\,^{\circ}$C          & ---       & --- & cross-check\textsuperscript{a} \\
+    \bottomrule
+  \end{tabular}
+  \\[2pt]
+  {\footnotesize \textsuperscript{a}Only a single labelled frame is available for
+  SWM4-NDP (\ref{sn:data}).}
+\end{table}
+
+\subsection{Clustering algorithms}
+\label{sn:clustering}
+
+We benchmark four strategies, all acting on the standardized four-dimensional
+feature space.
+
+\emph{K-Means} partitions the data into $k=2$
+disjoint clusters by iterative nearest-centroid assignment; centroids are
+initialized with K-Means++ from scikit-learn using
+$n_{\mathrm{init}}=20$ restarts and a $300$-iteration maximum.
+
+\emph{Gaussian mixture model (GMM)} fits a two-component
+mixture by expectation--maximization, providing soft probabilistic assignments;
+this choice is motivated by the near-Gaussian order-parameter distributions
+predicted by the two-state framework. We additionally fit
+$k=2$--$4$ components and compare them using the Bayesian and Akaike information
+criteria (BIC, AIC) and the silhouette score (\ref{sn:robustness}).
+
+\emph{Hybrid density--GMM pipelines.} DBSCAN and
+HDBSCAN identify clusters as contiguous high-density
+regions and flag low-density boundary molecules as noise. We use each as a
+\emph{denoising} step: molecules in the sparsely populated transition zone
+between the two structural states are removed, and a two-component GMM is then
+fitted to the retained subset. DBSCAN requires a neighbourhood radius
+$\varepsilon$ and a minimum core size MinPts; HDBSCAN replaces $\varepsilon$
+with a hierarchical density estimate parameterized by \texttt{min\_samples} and
+\texttt{min\_cluster\_size}. Both are selected by grid search
+(\ref{sn:robustness}, Figs.~\ref{fig:dbscan_heatmap} and~\ref{fig:hdbscan_heatmap}).
+
+%=======================================================================
+\section{Clustering algorithm comparison and robustness}
+\label{sn:robustness}
+
+\emph{Per-state order-parameter distributions.}
+Figures~\ref{fig:op_kmeans}--\ref{fig:op_hdbscan} show the per-state
+distributions of the four order parameters, together with the $q$--$\zeta$
+scatter, for the K-Means, GMM, and HDBSCAN$\rightarrow$GMM pipelines; the
+corresponding distributions for the DBSCAN$\rightarrow$GMM pipeline used in the
+main text are given in main-text Fig.~1. Every method recovers the same
+LFTS/DNLS split: the separation is sharpest in $\zeta$ but is also clear in $q$
+and $S_k$.
+
+\emph{All algorithms agree.}
+Figure~\ref{fig:method_comparison} overlays the K-Means, GMM, and
+HDBSCAN$\rightarrow$GMM classifications in the $q$--$\zeta$ plane (the
+DBSCAN$\rightarrow$GMM result is shown in main-text Fig.~1); all place the
+LFTS/DNLS boundary in essentially the same location. The silhouette scores are
+$0.2418$ (K-Means), $0.2144$ (GMM), $0.2572$ (HDBSCAN$\rightarrow$GMM), and
+$0.2841$ (DBSCAN$\rightarrow$GMM); the hybrid pipelines improve on the baselines
+by first removing the ambiguous transition-zone molecules.
+
+\emph{Hyperparameter selection.}
+Figures~\ref{fig:dbscan_heatmap} and~\ref{fig:hdbscan_heatmap} report the grid
+searches for the DBSCAN and HDBSCAN denoising steps. Each shows the resulting
+two-component GMM silhouette as a colour field over the two hyperparameters,
+with contours marking the fraction of molecules discarded as transition-zone
+noise, alongside the silhouette--discard tradeoff and its efficiency frontier:
+discarding more of the transition zone raises the silhouette at the cost of
+sample size. We select the operating points that reproduce the noise mask of the
+main-text classification---$\varepsilon=0.06$, $\mathrm{MinPts}=15$ for DBSCAN (removing
+$\approx 23\%$ of molecules as noise) and $\mathtt{min\_cluster\_size}=8$,
+$\mathtt{min\_samples}=8$ for HDBSCAN ($15.2\%$)---each balancing separation
+quality against data retention.
+
+\emph{Number of clusters.}
+Figure~\ref{fig:cluster_number} reports BIC, AIC, and the silhouette score
+versus the number of GMM components $k$. BIC and AIC decrease monotonically, with
+the largest single drop between $k=1$ and $k=2$, indicating that structural
+bimodality is the dominant feature of the data; the absence of a sharp minimum
+is expected for thermally broadened, overlapping populations. The silhouette
+score resolves the ambiguity, peaking at $k=2$ and declining for $k\geq 3$,
+confirming that two components provide the most parsimonious description and that
+additional components fragment rather than resolve physical states.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{images/SI/op_kmeans.png}
+  \caption{\textbf{K-Means: per-state order-parameter distributions and
+  $q$--$\zeta$ scatter} for TIP4P/2005 water at $T=-20\,^{\circ}$C. Probability
+  distributions of $q$, LSI, $S_k$, and $\zeta$ for the LFTS (purple) and DNLS
+  (orange) states (left), with the classified $q$--$\zeta$ scatter (right).
+  K-Means assigns every molecule, so there is no transition-zone (noise)
+  population. The bimodal separation is sharpest in $\zeta$ but is also evident
+  in $q$ and $S_k$; LSI is in nm$^2$ and $\zeta$ in nm.}
+  \label{fig:op_kmeans}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{images/SI/op_gmm.png}
+  \caption{\textbf{GMM: per-state order-parameter distributions and $q$--$\zeta$
+  scatter} for TIP4P/2005 water at $T=-20\,^{\circ}$C. As in
+  Fig.~\ref{fig:op_kmeans} but for the two-component Gaussian mixture model
+  (LFTS, teal; DNLS, brown). The soft probabilistic assignment yields slightly
+  more diffuse boundaries than K-Means but recovers the same two-state split.}
+  \label{fig:op_gmm}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{images/SI/op_hdbscan.png}
+  \caption{\textbf{HDBSCAN$\rightarrow$GMM: per-state order-parameter
+  distributions and $q$--$\zeta$ scatter} for TIP4P/2005 water at
+  $T=-20\,^{\circ}$C (LFTS, greyish-pink; DNLS, greyish-green; transition-zone
+  molecules removed by the HDBSCAN denoising step in grey). Removing the transition zone
+  before the GMM fit sharpens the separation, as in the DBSCAN$\rightarrow$GMM
+  pipeline of the main text (Fig.~1).}
+  \label{fig:op_hdbscan}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.92\columnwidth]{images/SI/method_comparison.png}
+  \caption{\textbf{The two-state separation is robust to the choice of
+  clustering algorithm.} Classification of TIP4P/2005 water at
+  $T=-20\,^{\circ}$C in the $q$--$\zeta$ plane by K-Means, GMM, and the
+  HDBSCAN$\rightarrow$GMM pipeline (LFTS blue, DNLS red). All three place the
+  LFTS/DNLS boundary in the same region of feature space; the
+  HDBSCAN$\rightarrow$GMM panel additionally shows the transition-zone molecules
+  (grey) removed before the GMM fit. The DBSCAN$\rightarrow$GMM result is shown
+  in main-text Fig.~1. Silhouette scores: $0.2418$ (K-Means), $0.2144$
+  (GMM), $0.2572$ (HDBSCAN$\rightarrow$GMM).}
+  \label{fig:method_comparison}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{images/SI/dbscan_heatmap.png}
+  \caption{\textbf{DBSCAN hyperparameter grid search.} \emph{Left}, the
+  two-component GMM silhouette after noise removal (colour field) over the
+  neighbourhood radius $\varepsilon$ and MinPts, with white contours marking the
+  fraction of molecules discarded as transition-zone noise. \emph{Right}, the
+  corresponding silhouette--discard tradeoff, coloured by MinPts, with the
+  efficiency frontier (the highest silhouette attainable at each discard level).
+  Discarding more of the transition zone raises the silhouette at the cost of
+  sample size. The operating point (square; $\varepsilon=0.06$,
+  $\mathrm{MinPts}=15$; $\approx 23\%$ discarded) reproduces the noise mask of the
+  DBSCAN$\rightarrow$GMM classification used in the main text.}
+  \label{fig:dbscan_heatmap}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{images/SI/hdbscan_heatmap.png}
+  \caption{\textbf{HDBSCAN hyperparameter grid search} (TIP4P/2005,
+  $T=-20\,^{\circ}$C). As in Fig.~\ref{fig:dbscan_heatmap}, but for the HDBSCAN
+  denoising step over \texttt{min\_cluster\_size} and \texttt{min\_samples} (both
+  on log axes): the left panel shows the two-component GMM silhouette after
+  removal (colour field) with white contours marking the fraction discarded as
+  noise, and the right panel shows the silhouette--discard tradeoff with its
+  efficiency frontier. The operating point (square; \texttt{min\_cluster\_size}~$=8$,
+  \texttt{min\_samples}~$=8$; $\approx 15\%$ discarded) reproduces the noise mask
+  of the HDBSCAN$\rightarrow$GMM classification.}
+  \label{fig:hdbscan_heatmap}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=0.9\columnwidth]{images/SI/cluster_number.png}
+  \caption{\textbf{Model-selection diagnostics identify two clusters.} BIC, AIC,
+  and mean silhouette score for GMMs with $k=1$--$4$ components fitted to
+  TIP4P/2005 water at $T=-20\,^{\circ}$C. BIC and AIC fall monotonically with the
+  largest drop between $k=1$ and $k=2$; the silhouette score peaks at $k=2$ and
+  declines for $k\geq 3$. Together the diagnostics select $k=2$ as the most
+  parsimonious description.}
+  \label{fig:cluster_number}
+\end{figure}
+
+\FloatBarrier
+
+%=======================================================================
+\section{Robustness across temperature and water model}
+\label{sn:generality}
+
+The temperature and model dependence of the two-state signature is presented in
+the main text (Fig.~3) and summarized here for completeness. Across the
+supercooled-to-ambient range ($-30$ to $+30\,^{\circ}$C) the FSDP of the LFTS
+cluster at $k_{T1}$ strengthens monotonically on cooling as the LFTS fraction
+grows, while the DNLS peak near $k_{D1}$ remains essentially stable. The same
+qualitative behaviour holds for all three water models examined---TIP4P/2005,
+TIP5P, and SWM4-NDP---each of which produces a clear FSDP in the LFTS cluster and
+a stable ordinary-liquid peak in the DNLS cluster, with peak intensities
+ordered TIP5P~$>$~TIP4P/2005~$>$~SWM4-NDP. We caution that the SWM4-NDP
+trajectories yield far fewer labelled configurations than the rigid models
+(\ref{sn:data}), so its per-cluster $S(k)$ is noisier and
+should be read as indicative rather than quantitative.
+
+%=======================================================================
+\section{Data, reproducibility, and caveats}
+\label{sn:data}
+
+\emph{Sampling and frame counts.}
+Cluster labels are computed on a subsample of $20$ frames per condition (the
+clustering subsample drawn from the production trajectories), corresponding to
+$N=20{,}480$ molecular configurations at each temperature for the rigid models.
+Structure-factor uncertainty bands are the per-frame standard error of the mean
+over these frames.
+
+\emph{SWM4-NDP.}
+The polarizable SWM4-NDP trajectories provide only a single labelled frame at
+$T=-20\,^{\circ}$C; its per-cluster $S(k)$ therefore carries no frame-to-frame
+error estimate and is presented only as a qualitative cross-check of model
+generality.
+
+\emph{Units.}
+Distances are taken directly from MDTraj and are expressed in nanometres. In
+particular $\zeta$ takes values of order $0$--$0.12$~nm and LSI is in nm$^2$;
+earlier internal plots that labelled $\zeta$ in {\AA}ngstr\"om were mislabelled.
+
+\emph{Order-parameter dynamic range.}
+The four order parameters differ in how strongly they separate the two states.
+The separation is sharpest in $\zeta$ and clear in LSI and $q$, whereas $S_k$
+remains within $\sim\!1\%$ of unity for essentially all liquid configurations
+(the four nearest-neighbour distances are nearly uniform, so the normalized
+nearest-neighbour distance variance that defines $S_k$ is small) and therefore
+contributes comparatively little to the cluster assignment. We retain it for completeness and for
+comparability with earlier order-parameter studies.
+
+\emph{Cluster identity.}
+In the flat per-molecule label files, the LFTS cluster is the one with the
+larger mean $\zeta$; in the structure-factor caches the integer cluster
+identifiers are reassigned by population and are not stable across temperatures.
+We therefore identify the LFTS cluster per condition by its enhanced
+FSDP-minus-$D_1$ contrast---the larger value of
+$\langle S\rangle_{\mathrm{FSDP}} - \langle S\rangle_{D_1}$ over the reduced-$k$
+windows $k\,r_{\mathrm{OO}}/2\pi\in[0.72,0.86]$ and $[0.95,1.10]$. The two
+criteria agree on the same physical population (high-$\zeta$, high-$q$,
+FSDP-bearing, minority at $-20\,^{\circ}$C with a classified fraction
+$\approx 0.38$).
+
+\emph{Code and data availability.}
+The order-parameter calculations, clustering pipelines, structure-factor
+computation, and the scripts that generate every figure in the main text and
+this Supplement are available in the project repository.
+
+\FloatBarrier
+
+\end{document}

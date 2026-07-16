@@ -36,7 +36,7 @@ FEATURE_LABELS = {
     "Q6_all": r"$Q_6$",
     "LSI_all": r"LSI",
     "Sk_all": r"$S_k$",
-    "zeta_all": r"$\zeta$ (Å)",
+    "zeta_all": r"$\zeta$ (nm)",
 }
 
 # Features to omit from distribution / pair grids (omit Q6, keep LSI)

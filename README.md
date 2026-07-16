@@ -6,8 +6,9 @@ simulations, following the Shi & Tanaka two-state framework
 (*JACS* **142**, 2868 — 2020).
 
 The custom Structure-Factor Validation Score is documented in
-[`3_clustering/SFVS_metric.md`](3_clustering/SFVS_metric.md), next to its
-implementation in `3_clustering/sfvs.py`.
+[`3_clustering/SFVS_metric.md`](3_clustering/SFVS_metric.md). The active
+workflow keeps the metric description while the older standalone score
+implementation is archived.
 
 ---
 
@@ -17,8 +18,8 @@ implementation in `3_clustering/sfvs.py`.
   1_simulate           MD trajectories                        → data/simulations/*
   2_order_params       DCD → q, Q6, LSI, Sk, ζ                → data/order_params/*.mat
   3_clustering         MAT → cluster labels                   → results/clustering/<run>/
-  4_structure_factor   labels + DCD → per-cluster S(k)        → results/structure_factor/<run>/
-  5_paper_figures      composite figures used in the paper    → results/paper_figures/
+  4_structure_factor   labels + DCD → per-cluster S(k)        → results/clustering/<run>/
+  5_paper_figures      composite figures used in the paper    → 5_paper_figures/figures_redesign/
 ```
 
 The numbered prefix is the running order: stage *N* consumes the output of
@@ -66,10 +67,10 @@ bash pipeline/run_sk_batch.sh     # S(k) only, post-process existing batches
 │
 ├── 1_simulate/                ← OpenMM drivers + simulation engine
 ├── 2_order_params/            ← DCD → MAT (LSI, q, Sk, Q6, ζ)
-├── 3_clustering/              ← clustering methods + SFVS metric
-│   └── SFVS_metric.md         ← spec for sfvs.py
-├── 4_structure_factor/        ← per-cluster S(k), label-matrix conversion
-├── 5_paper_figures/           ← combined composite figures
+├── 3_clustering/              ← active clustering entry point + style helpers
+│   └── SFVS_metric.md         ← archived validation-score specification
+├── 4_structure_factor/        ← per-cluster S(k) and S(k, ζ) helpers
+├── 5_paper_figures/           ← manuscript figure builders
 │
 ├── pipeline/                  ← orchestration scripts
 │   ├── run_pipeline.sh        ← top-level driver (stages 1 → 5)
@@ -79,9 +80,15 @@ bash pipeline/run_sk_batch.sh     # S(k) only, post-process existing batches
 │   └── run_sk_batch.sh        ← batch S(k) post-process
 │
 ├── data/                      ← inputs (gitignored — large binaries)
-    ├── simulations/{tip4p2005, tip5p, swm4ndp}/
-    └── order_params/
-
+│   ├── simulations/{tip4p2005, tip5p, swm4ndp}/
+│   └── order_params/
+│
+├── results/                   ← outputs (gitignored)
+│   ├── clustering/
+│   ├── structure_factor/
+│   └── paper_figures/
+│
+└── _archive/                  ← legacy code kept locally for reference (gitignored)
 ```
 
 **Code is committed; data and results are not.** See [.gitignore](.gitignore).
@@ -110,42 +117,35 @@ python 2_order_params/run_single_condition.py tip4p2005 T-20 Run01
 python 2_order_params/compute_order_params.py --model tip4p2005
 ```
 
-### Stage 3 — Clustering
+### Stage 3/4 — Clustering and per-cluster structure factor
 
 ```bash
-python 3_clustering/water_clustering.py \
-    --mat_file  data/order_params/OrderParam_tip4p2005_T-20_Run01.mat \
-    --zeta_file data/order_params/OrderParamZeta_tip4p2005_T-20_Run01.mat \
-    --n_runs 1 --method dbscan_gmm --eps 0.05 --min_samples 30 \
-    --features zeta_all \
-    --out_dir results/clustering/tip4p2005_T-20_dbscan_gmm
+python pipeline/auto_cluster_pipeline.py \
+    --mat-file  data/order_params/OrderParam_tip4p2005_T-20_Run01.mat \
+    --zeta-file data/order_params/OrderParamZeta_tip4p2005_T-20_Run01.mat \
+    --dcd-file  data/simulations/tip4p2005/dcd_tip4p2005_T-20_N1024_Run01_0.dcd \
+    --pdb-file  data/simulations/tip4p2005/inistate_tip4p2005_T-20_N1024_Run01.pdb \
+    --method dbscan_gmm --eps 0.05 --min-samples 30 \
+    --output-dir results/clustering/tip4p2005_T-20_dbscan_gmm
 ```
 
-DBSCAN parameter sweep:
+To run clustering only and skip S(k):
 
 ```bash
-python 3_clustering/param_search.py \
-    -m data/order_params/OrderParam_tip4p2005_T-20_Run01.mat \
-    -z data/order_params/OrderParamZeta_tip4p2005_T-20_Run01.mat \
-    -n 1 \
-    -o results/clustering/param_search_results/tip4p2005_T-20
+python pipeline/auto_cluster_pipeline.py ... --skip-structure-factor
 ```
+
+`3_clustering/water_clustering.py` remains available when only label generation
+and diagnostic clustering plots are needed.
 
 ### Stage 4 — Per-cluster structure factor
 
 ```bash
-# 4a: reshape flat labels → (frames × molecules) matrix
-python 4_structure_factor/convert_cluster_labels.py \
-    --input  results/clustering/tip4p2005_T-20_dbscan_gmm/cluster_labels.csv \
-    --output results/clustering/cluster_labels_matrices/cluster_labels_matrix_tip4p2005_T-20_dbscan_gmm.csv \
-    --n-runs 1 --n-molecules 1024 --label-column label_dbscan_gmm
-
-# 4b: compute per-cluster S(k) from DCD + label matrix
 python 4_structure_factor/structure_factor_bycluster.py \
     --dcd-file       data/simulations/tip4p2005/dcd_tip4p2005_T-20_N1024_Run01_0.dcd \
     --pdb-file       data/simulations/tip4p2005/inistate_tip4p2005_T-20_N1024_Run01.pdb \
     --zeta-file      data/order_params/OrderParamZeta_tip4p2005_T-20_Run01.mat \
-    --cluster-labels results/clustering/cluster_labels_matrices/cluster_labels_matrix_tip4p2005_T-20_dbscan_gmm.csv \
+    --cluster-labels results/clustering/tip4p2005_T-20_dbscan_gmm/cluster_labels_matrix_dbscan_gmm.csv \
     --cluster-only --model-name tip4p2005 --temperature -20 \
     --output-dir results/structure_factor/tip4p2005_T-20_dbscan_gmm
 ```
@@ -153,8 +153,9 @@ python 4_structure_factor/structure_factor_bycluster.py \
 ### Stage 5 — Paper figures
 
 ```bash
-python 5_paper_figures/generate_paper_figures.py
-python 5_paper_figures/generate_paper_figures.py --sections c3 c4   # subset
+python 5_paper_figures/build_data.py       # rebuild caches when inputs change
+python 5_paper_figures/make_main_figures.py
+python 5_paper_figures/make_si_figures.py
 ```
 
 ---

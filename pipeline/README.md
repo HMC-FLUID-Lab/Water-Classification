@@ -43,3 +43,8 @@ bash run_sk_batch.sh              # only the S(k) post-process
 ```
 
 Both shells resolve paths relative to the repo root automatically.
+
+Note: Stage 3 and Stage 4 are intentionally consolidated in
+`auto_cluster_pipeline.py`. Running `run_pipeline.sh --only 4` now exits with a
+message because Stage 4 needs the label matrix produced by the consolidated
+Stage 3/4 path.
