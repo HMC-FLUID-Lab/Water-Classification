@@ -50,8 +50,9 @@ _archive/
 # Local file collection (large; not for upload)
 7_file_collection/
 
-# Manuscript (kept local — not tracked in this repo)
+# Manuscript + paper figures (kept local — not tracked in this repo)
 6_paper_writing/
+5_paper_figures/
 
 # ─── Result figures ──────────────────────────────────────────────────────────
 *.png
@@ -81,14 +82,7 @@ results/*
 batch_results*/
 structure_factor_results/
 
-# ─── Stage-5 figure scratch & caches (regenerable; final figures live in 6_paper_writing/) ──
-5_paper_figures/figures/
-5_paper_figures/figures_redesign/
-5_paper_figures/paper/
-5_paper_figures/appendix/
-5_paper_figures/heatmap_redesign_preview/
-5_paper_figures/redesign_cache/
-5_paper_figures/sk_cache/
+# (Stage-5 figure scratch & caches are covered by the 5_paper_figures/ rule above.)
 
 # Local figure backups (pre-confidence originals, not for upload)
 _figure_backup_preconf/
