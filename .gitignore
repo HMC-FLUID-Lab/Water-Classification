@@ -50,16 +50,18 @@ _archive/
 # Local file collection (large; not for upload)
 7_file_collection/
 
+# Manuscript (kept local — not tracked in this repo)
+6_paper_writing/
+
 # ─── Result figures ──────────────────────────────────────────────────────────
 *.png
 *.jpg
 *.jpeg
 *.pdf
 
-# The self-contained manuscript bundle ships as a tracked zip
-# (6_paper_writing/Paper_WaterMLClustering.zip). Loose result/figure PNGs and
-# built PDFs stay ignored — they are regenerable from the stage-5 scripts and
-# already carried inside the zip.
+# Result figures / built PDFs stay ignored — regenerable from the stage-5
+# scripts. The manuscript itself (6_paper_writing/) is kept local, ignored
+# below.
 
 # ─── Simulation data (large binaries) ────────────────────────────────────────
 *.dcd
