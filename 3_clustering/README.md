@@ -6,6 +6,13 @@ and run an unsupervised clustering algorithm to label every molecule as
 `../results/clustering/<run_name>/` containing `cluster_labels.csv` plus
 diagnostic plots.
 
+The **paper's two-state assignment** is the likelihood-ratio (LR) classifier
+built on top of the `dbscan_gmm` base clustering (DBSCAN cores → 2-component
+GMM → symmetric likelihood-ratio reject band, τ = 2.0, on the four features
+ζ/q/LSI/Sₖ). Its reference implementation is
+`../5_paper_figures/run_generality_lr.py`; see the top-level README for the
+method description. The methods below are the base clustering options.
+
 ## Methods
 
 | Method           | When to use                                                  |
@@ -13,7 +20,7 @@ diagnostic plots.
 | `dbscan`         | Density-based; identifies noise + clusters.                  |
 | `kmeans`         | Forces exactly *N* clusters; no noise label.                 |
 | `gmm`            | Gaussian Mixture; closest match to the Tanaka two-state model. |
-| `dbscan_gmm`     | Production: DBSCAN denoising → GMM. Used in the paper.       |
+| `dbscan_gmm`     | Base clustering under the paper's LR classifier: DBSCAN denoising → GMM. |
 | `hdbscan`        | Adaptive density; no `eps` to tune.                          |
 | `hdbscan_gmm`    | HDBSCAN denoising → GMM.                                     |
 

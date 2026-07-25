@@ -10,6 +10,12 @@
 \usepackage{booktabs}
 \usepackage{gensymb}
 \usepackage{placeins}
+\usepackage[usenames,dvipsnames]{color}
+\usepackage[normalem]{ulem}
+
+\newcommand{\comment}[1]{\textcolor{Mahogany}{#1}}
+\newcommand{\edit}[1]{\textcolor{OrangeRed}{#1}}
+\newcommand{\delete}[1]{\textcolor{OrangeRed}{\sout{#1}}}
 
 % --- Supplementary numbering: Supplementary Note / Fig. S# / Table S# / Eq. S# ---
 \renewcommand{\thesection}{Supplementary Note \arabic{section}}
@@ -105,7 +111,7 @@ as the reference condition.
 \subsection{Clustering algorithms}
 \label{sn:clustering}
 
-We benchmark four strategies, all acting on the standardized four-dimensional
+We benchmark three strategies, all acting on the standardized four-dimensional
 feature space.
 
 \emph{K-Means} partitions the data into $k=2$
@@ -120,51 +126,52 @@ predicted by the two-state framework. We additionally fit
 $k=2$--$4$ components and compare them using the Bayesian and Akaike information
 criteria (BIC, AIC) and the silhouette score (\ref{sn:robustness}).
 
-\emph{Hybrid density--GMM pipelines.} DBSCAN and
-HDBSCAN identify clusters as contiguous high-density
-regions and flag low-density boundary molecules as noise. We use each as a
-\emph{denoising} step: molecules in the sparsely populated transition zone
-between the two structural states are removed, and a two-component GMM is then
-fitted to the retained subset. DBSCAN requires a neighbourhood radius
-$\varepsilon$ and a minimum core size MinPts; HDBSCAN replaces $\varepsilon$
-with a hierarchical density estimate parameterized by \texttt{min\_samples} and
-\texttt{min\_cluster\_size}. Both are selected by grid search
-(\ref{sn:robustness}, Figs.~\ref{fig:dbscan_heatmap} and~\ref{fig:hdbscan_heatmap}).
+\emph{Likelihood-ratio classification (main pipeline).} Our main classifier
+fits a two-component, full-covariance Gaussian mixture to the standardized
+features and assigns each molecule by the class-conditional log-likelihood ratio
+$\Lambda(\mathbf{x})=\log p_{\mathrm{LFTS}}(\mathbf{x})-\log p_{\mathrm{DNLS}}(\mathbf{x})$:
+LFTS for $\Lambda\geq\tau$, DNLS for $\Lambda\leq-\tau$, and transitional for
+$|\Lambda|<\tau$, with $\tau=2$. Prior to fitting, a small fraction of gross
+outliers is removed so that the two Gaussian components settle on the two dense
+cores rather than being distorted by sparse extreme points. Because the reject band is
+symmetric about $\Lambda=0$, it is unbiased toward the minority LFTS state, and
+the LFTS/DNLS assignment---being fixed by the sign of $\Lambda$---is independent
+of $\tau$.
+
+\emph{Purely density-based clustering (not used).} For comparison we also
+applied purely density-based clustering---DBSCAN and HDBSCAN---directly to the
+feature space. Because the crossover between the two states is a densely
+populated region of overlap rather than a low-density gap, these methods do not
+cleanly isolate the two structural states, and we therefore do not use them for
+the main classification.
 
 %=======================================================================
 \section{Clustering algorithm comparison and robustness}
 \label{sn:robustness}
 
 \emph{Per-state order-parameter distributions.}
-Figures~\ref{fig:op_kmeans}--\ref{fig:op_hdbscan} show the per-state
+Figures~\ref{fig:op_kmeans} and~\ref{fig:op_gmm} show the per-state
 distributions of the four order parameters, together with the $q$--$\zeta$
-scatter, for the K-Means, GMM, and HDBSCAN$\rightarrow$GMM pipelines; the
-corresponding distributions for the DBSCAN$\rightarrow$GMM pipeline used in the
-main text are given in main-text Fig.~1. Every method recovers the same
-LFTS/DNLS split: the separation is sharpest in $\zeta$ but is also clear in $q$
-and $S_k$.
+scatter, for the K-Means and GMM baselines; the corresponding distributions for
+the likelihood-ratio classifier used in the main text are given in main-text
+Fig.~1. Both baselines recover the same LFTS/DNLS split: the separation is
+sharpest in $\zeta$ but is also clear in $q$ and $S_k$.
 
-\emph{All algorithms agree.}
-Figure~\ref{fig:method_comparison} overlays the K-Means, GMM, and
-HDBSCAN$\rightarrow$GMM classifications in the $q$--$\zeta$ plane (the
-DBSCAN$\rightarrow$GMM result is shown in main-text Fig.~1); all place the
-LFTS/DNLS boundary in essentially the same location. The silhouette scores are
-$0.2418$ (K-Means), $0.2144$ (GMM), $0.2572$ (HDBSCAN$\rightarrow$GMM), and
-$0.2841$ (DBSCAN$\rightarrow$GMM); the hybrid pipelines improve on the baselines
-by first removing the ambiguous transition-zone molecules.
+\emph{All methods agree, and the likelihood-ratio classifier separates best.}
+K-Means and the two-component GMM place the LFTS/DNLS boundary in essentially
+the same region of feature space as the likelihood-ratio classifier (main-text
+Fig.~1), confirming that the two-state split is a property of the data rather
+than of any single algorithm. The silhouette scores are $0.2418$ (K-Means) and
+$0.2144$ (GMM) for these every-molecule baselines and $0.34$ for the
+likelihood-ratio classifier, which improves separation by first setting aside
+the ambiguous transition molecules.
 
 \emph{Hyperparameter selection.}
-Figures~\ref{fig:dbscan_heatmap} and~\ref{fig:hdbscan_heatmap} report the grid
-searches for the DBSCAN and HDBSCAN denoising steps. Each shows the resulting
-two-component GMM silhouette as a colour field over the two hyperparameters,
-with contours marking the fraction of molecules discarded as transition-zone
-noise, alongside the silhouette--discard tradeoff and its efficiency frontier:
-discarding more of the transition zone raises the silhouette at the cost of
-sample size. We select the operating points that reproduce the noise mask of the
-main-text classification---$\varepsilon=0.06$, $\mathrm{MinPts}=15$ for DBSCAN (removing
-$\approx 23\%$ of molecules as noise) and $\mathtt{min\_cluster\_size}=8$,
-$\mathtt{min\_samples}=8$ for HDBSCAN ($15.2\%$)---each balancing separation
-quality against data retention.
+The main-text likelihood-ratio classifier has a single free parameter, the
+reject half-width $\tau$. Because the LFTS/DNLS assignment is set by the sign of
+$\Lambda$, $\tau$ controls only the transitional fraction---a broad range of
+$\tau$ yields the same two states, with more borderline molecules set aside as
+$\tau$ grows---and we use $\tau=2$, which sets aside $\approx 9.8\%$ of molecules.
 
 \emph{Number of clusters.}
 Figure~\ref{fig:cluster_number} reports BIC, AIC, and the silhouette score
@@ -200,6 +207,8 @@ additional components fragment rather than resolve physical states.
   \label{fig:op_gmm}
 \end{figure}
 
+% --- DBSCAN/HDBSCAN density-method figures removed from the paper; kept in source for later ---
+\iffalse
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{images/SI/op_hdbscan.png}
@@ -207,7 +216,7 @@ additional components fragment rather than resolve physical states.
   distributions and $q$--$\zeta$ scatter} for TIP4P/2005 water at
   $T=-20\,^{\circ}$C (LFTS, greyish-pink; DNLS, greyish-green; transition-zone
   molecules removed by the HDBSCAN denoising step in grey). Removing the transition zone
-  before the GMM fit sharpens the separation, as in the DBSCAN$\rightarrow$GMM
+  before the GMM fit sharpens the separation, as in the likelihood-ratio
   pipeline of the main text (Fig.~1).}
   \label{fig:op_hdbscan}
 \end{figure}
@@ -221,7 +230,7 @@ additional components fragment rather than resolve physical states.
   HDBSCAN$\rightarrow$GMM pipeline (LFTS blue, DNLS red). All three place the
   LFTS/DNLS boundary in the same region of feature space; the
   HDBSCAN$\rightarrow$GMM panel additionally shows the transition-zone molecules
-  (grey) removed before the GMM fit. The DBSCAN$\rightarrow$GMM result is shown
+  (grey) removed before the GMM fit. The likelihood-ratio result is shown
   in main-text Fig.~1. Silhouette scores: $0.2418$ (K-Means), $0.2144$
   (GMM), $0.2572$ (HDBSCAN$\rightarrow$GMM).}
   \label{fig:method_comparison}
@@ -238,8 +247,8 @@ additional components fragment rather than resolve physical states.
   efficiency frontier (the highest silhouette attainable at each discard level).
   Discarding more of the transition zone raises the silhouette at the cost of
   sample size. The operating point (square; $\varepsilon=0.06$,
-  $\mathrm{MinPts}=15$; $\approx 23\%$ discarded) reproduces the noise mask of the
-  DBSCAN$\rightarrow$GMM classification used in the main text.}
+  $\mathrm{MinPts}=15$; $\approx 23\%$ discarded) defines the DBSCAN
+  density-based cross-check.}
   \label{fig:dbscan_heatmap}
 \end{figure}
 
@@ -257,6 +266,8 @@ additional components fragment rather than resolve physical states.
   of the HDBSCAN$\rightarrow$GMM classification.}
   \label{fig:hdbscan_heatmap}
 \end{figure}
+\fi
+% --- end removed density-method figures ---
 
 \begin{figure}[t]
   \centering
@@ -330,7 +341,7 @@ $\langle S\rangle_{\mathrm{FSDP}} - \langle S\rangle_{D_1}$ over the reduced-$k$
 windows $k\,r_{\mathrm{OO}}/2\pi\in[0.72,0.86]$ and $[0.95,1.10]$. The two
 criteria agree on the same physical population (high-$\zeta$, high-$q$,
 FSDP-bearing, minority at $-20\,^{\circ}$C with a classified fraction
-$\approx 0.38$).
+$\approx 0.36$).
 
 \emph{Code and data availability.}
 The order-parameter calculations, clustering pipelines, structure-factor

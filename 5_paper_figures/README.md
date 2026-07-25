@@ -1,26 +1,33 @@
 # 5_paper_figures
 
 Code that generates the manuscript images in
-`6_paper_writing/Paper_WaterMLClustering/images/`. After cleanup this directory
-holds five modules; everything else was moved to `_archive/` (superseded
-variants and experiments, kept for reference, not deleted).
+`6_paper_writing/Paper_WaterMLClustering/images/`. The current main-text figures
+use the **likelihood-ratio (LR) two-state classifier** (see the top-level
+README). Superseded variants and experiments were moved to `_archive/` (kept for
+reference, not deleted).
 
 ## Files
 
 | file | what it does |
 |------|--------------|
 | `nature_style.py` | Nature-Physics matplotlib style + colour system. Imported by everything. |
-| `figlib.py` | Shared data loaders (`load_flat`, `load_cache`, `k_norm`) plus the reusable panel builders `fig1_two_states` (Fig. 1 top) and `build` (order-parameter distributions + scatter). |
+| `figlib.py` | Shared data loaders (`load_flat`, `load_cache`, `k_norm`) plus reusable panel builders. |
 | `build_data.py` | Builds the cached inputs from the MD trajectories + `.mat` order params. Run once. |
-| `make_main_figures.py` | Main-text figures: fig1 (clustering), fig2 (validation), fig3 (generality). |
+| `run_generality_lr.py` | Fits the **frozen LR classifier** and writes LR labels + S(k)/generality caches for every condition. Run before the LR figure scripts. |
+| `make_needed_photos.py` | Main-text figures (clustering, validation line, generality) from the LR caches. |
+| `make_ver2_skzeta3d.py` / `make_ver2_skzeta2d.py` | LR S(k, ζ) 3-D surfaces + 2-D heatmaps (Fig. 2 panels). |
+| `make_ver2_figures.py` | LR per-cluster S(k) with the FSDP pre-peak comparison. |
 | `make_si_figures.py` | SI figures: cluster-number selection, DBSCAN/HDBSCAN hyperparameter heatmaps, method comparison, per-method order-parameter figures. |
+
+The superseded confidence-method main renderer (`make_main_figures.py`) lives in
+`_archive/` (gitignored).
 
 ## Which module makes which paper image
 
 Main (`images/main/`):
-- `1_clustering.png` — `make_main_figures.py fig1` → `figures_redesign/1_clustering_conf.png`
-- `2_validation.png` — `make_main_figures.py fig2` (row a = `fig_validation_sk_conf.png`; rows b/c = `fig_skzeta_restyled_conf.png`, hand-assembled into the published composite)
-- `3_generality.png` — `make_main_figures.py fig3` → `figures_redesign/figR4_generality.png`
+- `1_classification.png` — `make_needed_photos.py` (clustering panels, LR)
+- `2_result.png` — `make_ver2_skzeta3d.py` + `make_ver2_skzeta2d.py` + `make_ver2_figures.py`, hand-assembled into the published composite
+- `3_generality.png` — `make_needed_photos.py` (S(k) vs T, population(T), model comparison)
 - `0_flowchart.png` — hand-drawn, no script.
 
 SI (`images/SI/`):
@@ -33,21 +40,23 @@ SI (`images/SI/`):
 
 ```bash
 # 1. build caches once (needs MD trajectories + order-param .mat files)
-python build_data.py            # conf_sk, redesign, blocktrim
+python build_data.py
 
-# 2. render figures from the caches (fast)
-python make_main_figures.py     # fig1 fig2 fig3
-python make_si_figures.py       # all SI figures
+# 2. fit the frozen LR classifier + write LR labels/caches
+python run_generality_lr.py all
+
+# 3. render figures from the caches (fast)
+python make_needed_photos.py         # main-text clustering / validation / generality
+python make_ver2_skzeta3d.py         # S(k,ζ) 3-D surfaces (Fig. 2)
+python make_ver2_skzeta2d.py         # S(k,ζ) 2-D heatmaps (Fig. 2)
+python make_ver2_figures.py          # per-cluster S(k) FSDP comparison
+python make_si_figures.py            # all SI figures
 ```
 
-Both figure scripts accept figure names (`python make_main_figures.py fig3`) and
-default to `all`. `make_si_figures.py --recompute` rebuilds the DBSCAN/HDBSCAN
-grids instead of using the cached `heatmap_redesign_preview/grid_*.npz`.
-
-Note: the published `2_validation.png` was assembled by hand from row a and the
-S(k,ζ) panels; `make_main_figures.py` regenerates those panels but
-`assemble_fig2()` only stitches them if the pre-cropped strips
-(`fig_skzeta_conf_rowb/rowc.png`) are present.
+`make_si_figures.py --recompute` rebuilds the DBSCAN/HDBSCAN grids instead of
+using the cached `heatmap_redesign_preview/grid_*.npz`. The published
+`2_result.png` was assembled by hand from the per-cluster S(k) row and the
+S(k, ζ) panels.
 
 Cross-directory dependencies (kept, not archived): `3_clustering/`
 (`water_clustering.py`, `make_confidence_labels.py`, `plot_style.py`) and

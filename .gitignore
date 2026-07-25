@@ -47,14 +47,19 @@ slurm-*.out
 # Local archive (not for upload)
 _archive/
 
+# Local file collection (large; not for upload)
+7_file_collection/
+
 # ─── Result figures ──────────────────────────────────────────────────────────
 *.png
 *.jpg
 *.jpeg
 *.pdf
 
-# Re-include the paper PDF and any committed schematic illustrations.
-!Paper_WaterMLClustering.pdf
+# The self-contained manuscript bundle ships as a tracked zip
+# (6_paper_writing/Paper_WaterMLClustering.zip). Loose result/figure PNGs and
+# built PDFs stay ignored — they are regenerable from the stage-5 scripts and
+# already carried inside the zip.
 
 # ─── Simulation data (large binaries) ────────────────────────────────────────
 *.dcd
@@ -88,6 +93,32 @@ _figure_backup_preconf/
 
 # Logs
 *.log
+
+# ─── LaTeX build artifacts (paper builds from *.tex; PDFs already ignored) ────
+*.aux
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+*.out
+*.toc
+*.lof
+*.lot
+*.nav
+*.snm
+*.vrb
+*.idx
+*.ilg
+*.ind
+
+# Editor / merge backups
+*.orig
+
+# ─── Exploratory analyses (read-only diagnostics, not part of the paper pipeline) ──
+# Kept locally for reference; not needed to reproduce the paper.
+3_clustering/ambiguity_rejection/
+3_clustering/density_diagnostics/
 
 # Misc
 *.tmp
