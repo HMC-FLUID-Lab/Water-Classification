@@ -1,0 +1,12 @@
+# Analysis (stages 2-6), Python 3.11; versions used to produce the deposited results.
+numpy==1.26.4
+scipy==1.17.0
+pandas==2.1.4
+scikit-learn==1.8.0
+matplotlib==3.10.8
+pillow==10.2.0
+joblib==1.5.3
+mdtraj==1.11.0
+
+# Stage 1 (molecular dynamics) only, run in a separate environment:
+# openmm==8.2 (Python 3.12), GPU (CUDA or OpenCL) recommended

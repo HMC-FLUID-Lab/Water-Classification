@@ -1,0 +1,5 @@
+# Data are distributed on Zenodo (see README); unzip them here.
+data/
+__pycache__/
+*.py[cod]
+.DS_Store

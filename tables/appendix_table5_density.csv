@@ -1,0 +1,3 @@
+method,n_set_aside,pct_set_aside,median_density_set_aside,median_density_retained,ratio,pct_denser_than_retained_median,pct_overlap_with_lowest_density_set,pct_in_lowest_density_decile
+Fisher density-valley cut,1469,7.1728515625,308.0,194.0,1.5876288659793814,68.5500340367597,2.0422055820285907,2.722940776038121
+posterior-confidence cut,3654,17.841796875,571.0,156.0,3.66025641025641,90.1751505199781,1.7515051997810618,0.60207991242474

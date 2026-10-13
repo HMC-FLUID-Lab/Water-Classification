@@ -1,0 +1,38 @@
+cff-version: 1.2.0
+message: "If you use this code or data, please cite the article and this deposit."
+title: "Data and code for: Is Water a Mixture: Unsupervised Likelihood-Ratio Classification Reveals Two Water States That Merge Upon Increasing Temperature"
+version: "1.0"
+license: MIT
+repository-code: "https://github.com/HMC-FLUID-Lab/Water-Classification"
+keywords:
+  - water
+  - two-state model
+  - molecular dynamics
+  - unsupervised classification
+  - structure factor
+authors:
+  - given-names: Yiqi
+    family-names: Yao
+    affiliation: "Department of Chemistry, Harvey Mudd College"
+  - given-names: Diya
+    family-names: Sanghi
+    affiliation: "Department of Chemistry, Harvey Mudd College"
+  - given-names: Akanksha D.
+    family-names: Chokshi
+    affiliation: "Yale-NUS College"
+  - given-names: Sarah
+    family-names: Nathani
+    affiliation: "Department of Chemistry, Harvey Mudd College"
+  - given-names: Marcellinus
+    family-names: Jerricho
+    affiliation: "Yale-NUS College"
+  - given-names: Minwoo
+    family-names: Choi
+    affiliation: "Yale-NUS College"
+  - given-names: Haiqin
+    family-names: Wang
+    affiliation: "Department of Chemistry, Harvey Mudd College"
+  - given-names: Bilin
+    family-names: Zhuang
+    affiliation: "Department of Chemistry, Harvey Mudd College; Yale-NUS College"
+    email: bzhuang@g.hmc.edu
