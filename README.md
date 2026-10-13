@@ -1,5 +1,9 @@
 # Water ML-Clustering Pipeline
 
+> **Paper version.** The code, figures and tables exactly as published, with links to the
+> deposited data, are on the [`doi-deposit`](https://github.com/HMC-FLUID-Lab/Water-Classification/tree/doi-deposit)
+> branch (archived on Zenodo). This `main` branch is the development version.
+
 Analysis code for identifying **Locally Favored Tetrahedral Structures (LFTS)**
 and **Disordered Normal-Liquid Structures (DNLS)** in water MD simulations,
 following the Shi & Tanaka two-state framework (*JACS* **142**, 2868 — 2020).
